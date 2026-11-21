@@ -126,6 +126,10 @@ public:
     // Report SNRs, as data2g-host since Data2G PR #98 (off: as before it).
     void setReportsSnr(bool on) { reportsSnr_ = on; }
     void setCuts(bool on) { cuts_ = on; }
+    // Thresholds with MODES, as data2g-host since Data2G PR #186 (off, the
+    // default: as before it). The figures are made up for the fake host,
+    // rising with a mode's speed; they are not Data2G's.
+    void setThresholds(bool on) { thresholds_ = on; }
     // DISCONNECTED reasons, TIMEOUT and TXPOWER, as data2g-host since
     // Data2G PR #122 (off: as before it).
     void setReasons(bool on) { reasons_ = on; }
@@ -276,6 +280,8 @@ private:
     int idleBroadcastMs_ = 0;
 
     bool cuts_ = true;
+
+    bool thresholds_ = false;
     bool data2g_ = false;       // DATA2G ON
     bool reasons_ = true;
     static constexpr double DEFAULT_IDLE_TIMEOUT_S = 300.0;

@@ -10,6 +10,7 @@
 #include "ragtime/broadcast/Stations.h"
 #include "ragtime/broadcast/BroadcastFiles.h"
 #include "ragtime/files/FileTraffic.h"
+#include "ragtime/gearbox/Gearbox.h"
 #include "ragtime/session/SessionChat.h"
 #include "ragtime/session/SessionLog.h"
 
@@ -49,6 +50,14 @@ private:
     void collectFiles(uint64_t now);
     bool fileAction(const std::string& name, const std::string& value, uint64_t now);
     std::string fileSnapshot(uint64_t now) const;
+    // The gearshift (AndroidGear.cpp).
+    void loadGear();
+    void saveGear();
+    void hostModes();
+    void updateGear(uint64_t now);
+    std::string broadcastMode() const;
+    bool gearAction(const std::string& name, const std::string& value);
+    std::string gearSnapshot() const;
     link::HostLink link_;
     broadcast::BroadcastChat broadcast_;
     broadcast::BroadcastLog broadcastLog_;
@@ -65,6 +74,9 @@ private:
     // This ragchew's finished files, shown in its thread until the next
     // session reads them back from the session log.
     std::vector<session::Message> sessionFileLines_;
+    gearbox::Gearshift gearshift_;
+    std::string savedGear_;
+    std::string savedGearMode_;     // the gear chosen last time, until the host's MODES are in
     std::string directory_;
     uint32_t savedNumber_ = 0;
     uint64_t now_ = 0;

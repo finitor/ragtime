@@ -124,6 +124,7 @@ void likeDataHost(FakeHost& host, const DemoAir::Options& options, double signal
     host.setIdleBroadcastMs(3000);
     host.setReportsSnr(true);
     host.setCuts(true);
+    host.setThresholds(true);   // so the demo has gears to shift
     host.setReasons(true);
     host.setHands(true);
     host.setHandMs((int)(link::HAND_SECONDS * 1000.0));

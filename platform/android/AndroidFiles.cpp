@@ -111,7 +111,7 @@ bool AndroidClient::fileAction(const std::string& action, const std::string& val
         if (relative.empty() || *relative.begin() == ".." || !std::filesystem::is_regular_file(source))
             throw std::invalid_argument("Choose an app-private imported file");
         auto id = offer ? sessionFiles_.offer(peer, path, now, error, picture)
-                        : broadcastFiles_.send(path, "", now, error, picture);
+                        : broadcastFiles_.send(path, broadcastMode(), now, error, picture);
         if (!id && !error.empty()) throw std::runtime_error(error);
         fileTraffic_.update(now);
         return id != 0;

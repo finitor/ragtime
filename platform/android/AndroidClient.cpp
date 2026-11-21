@@ -59,6 +59,7 @@ AndroidClient::AndroidClient(const std::string& call, const std::string& locator
     session_.setLog(&sessionLog_);
     session_.setTraffic(&fileTraffic_);
     loadFileState(now);
+    loadGear();
     // Pictures up to 64 KB come without asking, from anyone, and show as
     // they come, as on the desktop.
     if (picturesAvailable())
@@ -125,6 +126,7 @@ void AndroidClient::events(uint64_t now)
         seals_.onEvent(event, now);
         broadcastFiles_.onEvent(event, now);
         using Type = link::HostLink::Event::Type;
+        if (event.type == Type::ModesChanged) hostModes();
         if (event.type == Type::HeardFrom) stations_.heard(event.text, now, event.snr);
         if (event.type == Type::SessionSnr) stations_.heard(event.peer, now, event.snr);
         for (const auto& record : broadcast_.onEvent(event, now))
@@ -153,16 +155,17 @@ void AndroidClient::events(uint64_t now)
         {
             sessionFileLines_.clear(); // the log just read has them
             stations_.setPartner(event.peer, true, now);
-            broadcast_.announce(protocol::Status::State::Qrl, event.peer, "", now);
+            broadcast_.announce(protocol::Status::State::Qrl, event.peer, broadcastMode(), now);
         }
         if (event.type == Type::Ended)
         {
             stations_.setPartner("", false, now);
-            broadcast_.announce(protocol::Status::State::Qrv, "", "", now);
+            broadcast_.announce(protocol::Status::State::Qrv, "", broadcastMode(), now);
         }
     }
     fileTraffic_.setMode(broadcast::findMode(link_.modes(), session_.mode()));
     fileTraffic_.setCuts(link_.data2g());
+    updateGear(now);
     collectFiles(now); saveFileState(); saveNumber();
 }
 void AndroidClient::tick(uint64_t now)
@@ -176,14 +179,15 @@ bool AndroidClient::action(const std::string& name, const std::string& value, ui
     now_ = now;
     bool ok = false;
     if (name.compare(0, 5, "file-") == 0 || name.compare(0, 8, "picture-") == 0) ok = fileAction(name, value, now);
-    else if (name == "broadcast") ok = link_.groupOpen() && !broadcast_.send(value, "", now).empty();
+    else if (name == "gear" || name.compare(0, 5, "gear-") == 0) ok = gearAction(name, value);
+    else if (name == "broadcast") ok = link_.groupOpen() && !broadcast_.send(value, broadcastMode(), now).empty();
     else if (name == "session") ok = session_.send(value, now) != 0;
     else if (name == "call") ok = session_.call(checkedCall(value), now);
     else if (name == "leave") ok = session_.leave(now);
     else if (name == "abort") ok = session_.leaveNow(now);
     else if (name == "pause") { link_.setPaused(value == "true", now); session_.setPaused(value == "true", now); ok = true; }
     else if (name == "narrow") { link_.setNarrow(value == "true", now); ok = true; }
-    else if (name == "checkin") ok = link_.groupOpen() && broadcast_.checkIn("", now);
+    else if (name == "checkin") ok = link_.groupOpen() && broadcast_.checkIn(broadcastMode(), now);
     else throw std::invalid_argument("Unknown action");
     events(now);
     return ok;
@@ -304,6 +308,6 @@ std::string AndroidClient::snapshot(uint64_t now) const
             << ",\"heard\":" << quoted(broadcast::heardAgo(s->lastHeardMs, now))
             << ",\"snr\":" << quoted(stations_.cell(*s, broadcast::Column::Snr, now)) << '}';
     }
-    return out.str() + "],\"files\":" + fileSnapshot(now) + "}";
+    return out.str() + "],\"files\":" + fileSnapshot(now) + ",\"gear\":" + gearSnapshot() + "}";
 }
 } // namespace ragtime::android

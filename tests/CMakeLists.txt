@@ -15,7 +15,8 @@ endfunction()
 ragtime_test(ragtime_version_test VersionTest.cpp)
 ragtime_test(ragtime_android_client_test android/AndroidClientTest.cpp
     ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
-    ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp)
+    ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidGear.cpp)
 target_sources(ragtime_android_client_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
 target_link_libraries(ragtime_android_client_test PRIVATE ragtime_image)
 target_include_directories(ragtime_android_client_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
@@ -36,14 +37,24 @@ if(UNIX)
     # The Android adapter's file transfers, two of them on fake hosts.
     ragtime_test(ragtime_android_files_test android/AndroidFilesTest.cpp FakeHost.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
-        ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp)
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidGear.cpp)
     target_sources(ragtime_android_files_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
     target_link_libraries(ragtime_android_files_test PRIVATE ragtime_image)
     target_include_directories(ragtime_android_files_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
+    # The gearshift through the adapter, on hosts that give thresholds.
+    ragtime_test(ragtime_android_gear_test android/AndroidGearTest.cpp FakeHost.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidGear.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
+    target_include_directories(ragtime_android_gear_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
+    target_link_libraries(ragtime_android_gear_test PRIVATE ragtime_image)
     # Inline pictures through the adapter (skips itself without the codecs).
     ragtime_test(ragtime_android_pictures_test android/AndroidPicturesTest.cpp FakeHost.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidGear.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
     target_include_directories(ragtime_android_pictures_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
     target_link_libraries(ragtime_android_pictures_test PRIVATE ragtime_image)
@@ -51,6 +62,7 @@ if(UNIX)
     ragtime_test(ragtime_android_demo_test android/AndroidDemoTest.cpp FakeHost.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidGear.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/DemoAir.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
     target_include_directories(ragtime_android_demo_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android
