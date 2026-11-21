@@ -288,7 +288,9 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
                 Text("Demo mode")
                 Text("Practise with simulated stations inside the app. No modem is used and nothing is transmitted.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Switch(checked=demo,onCheckedChange={demo=it;error=""},modifier=Modifier.testTag("demo-switch"))
+            // Off is off at once: a demo left running behind a switch that says
+            // off would be the one thing demo mode must never be, unclear.
+            Switch(checked=demo,onCheckedChange={demo=it;error="";if(!it)model.demoOff()},modifier=Modifier.testTag("demo-switch"))
         } }
         if(error.isNotEmpty())item { Text(error,color=MaterialTheme.colorScheme.error) }
         item { Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {

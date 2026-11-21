@@ -122,6 +122,15 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
             lastJson="";requested=true;failures=0;retryAt=0;error="";status="Connecting";publish()
         } }
     }
+    /**
+     * The Demo mode switch turned off: said once and it is so. The demo ends
+     * if it is running, and the next Connect is to the operator's own modem.
+     */
+    fun demoOff() {
+        settings=settings.copy(demo=false)
+        preferences.edit().putBoolean("demo",false).apply()
+        if(demoActive)disconnect()
+    }
     private fun stopDemo() {
         // What the demo's stations said goes with the banner: none of it is
         // left on the screen to be taken for the air.

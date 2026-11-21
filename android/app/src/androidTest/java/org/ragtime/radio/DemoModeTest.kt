@@ -48,7 +48,10 @@ class DemoModeTest {
             app.onNodeWithContentDescription("Demo guide").performClick()
             app.onNodeWithContentDescription("Send message").performClick()
             app.waitUntil(40000) { model.snapshot.broadcast.any { it.ours&&it.to=="W1QSO"&&it.state=="Acknowledged" } }
-            app.waitUntil(40000) { model.snapshot.broadcast.any { !it.ours&&it.text.contains("73 de W1QSO") } }
+            try { app.waitUntil(40000) { model.snapshot.broadcast.any { !it.ours&&it.text.contains("73 de W1QSO") } } }
+            catch(e: androidx.compose.ui.test.ComposeTimeoutException) {
+                fail("W1QSO never answered. Broadcast: "+model.snapshot.broadcast.joinToString(" | ") { "${it.from}>${it.to}: ${it.text} [${it.state}]" })
+            }
 
             // A ragchew with a made-up station, started from Stations as the guide says.
             assertTrue(demoTip(model.snapshot,call).text.contains("Call K7QTH"))
@@ -66,9 +69,16 @@ class DemoModeTest {
             assertEquals(savedHost,preferences.getString("host",""))
             assertEquals(savedKiss,preferences.getInt("kiss",8100))
 
-            // Ending the demo takes the banner down and leaves the ragchew.
-            app.runOnUiThread { model.disconnect() }
+            // The switch turned off ends the demo there and then: the bar comes
+            // down, the ragchew is left, and the switch stays off.
+            app.onNodeWithContentDescription("Settings").performClick()
+            app.onNodeWithTag("demo-switch").performScrollTo().assertIsOn().performClick()
             app.waitUntil(15000) { !model.demoActive&&model.snapshot.connection=="Disconnected" }
+            app.onNodeWithTag("demo-switch").assertIsOff()
+            assertFalse(model.settings.demo)
+            assertFalse(preferences.getBoolean("demo",true))
+            androidx.test.espresso.Espresso.pressBack()
+            app.waitUntil(5000) { app.onAllNodesWithTag("demo-switch").fetchSemanticsNodes().isEmpty() }
             app.onNodeWithText("DEMO MODE").assertDoesNotExist()
             assertTrue("Nothing the demo's stations said outlives the banner",
                 model.snapshot.stations.isEmpty()&&model.snapshot.broadcast.isEmpty()&&model.snapshot.session.isEmpty())
@@ -77,6 +87,7 @@ class DemoModeTest {
             app.onNode(hasText("Stations") and isSelectable()).performClick()
             app.onNodeWithText("Connect to your Data2G host to hear stations.").performClick()
             app.onNodeWithText("Settings").assertExists()
+            app.onNodeWithTag("demo-switch").performScrollTo().assertIsOff()
         } finally {
             app.runOnUiThread { model.disconnect() }
         }
