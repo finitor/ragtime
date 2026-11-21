@@ -111,6 +111,11 @@ void AndroidClient::updateGear(uint64_t now)
 // stands, rather than a mode the host would refuse.
 std::string AndroidClient::broadcastMode() const
 {
+    // Auto with nobody heard yet has nothing to go by. The gearshift would
+    // sit in its lowest gear, which at 29 bit/s keys the transmitter for
+    // half a minute to say one line; the mode the operator's modem is set
+    // to is the better guess until a station's S/N is known.
+    if (autoWaiting()) return std::string();
     const std::optional<gearbox::Gear> gear = gearshift_.current();
     if (!gear) return std::string();
     for (const link::ModeInfo& m : link_.modes())
@@ -118,6 +123,11 @@ std::string AndroidClient::broadcastMode() const
         if (m.name == gear->mode) return gear->mode;
     }
     return std::string();
+}
+
+bool AndroidClient::autoWaiting() const
+{
+    return gearshift_.isAuto() && !gearshift_.pathSnr();
 }
 
 bool AndroidClient::gearAction(const std::string& action, const std::string& value)
@@ -152,9 +162,10 @@ bool AndroidClient::gearAction(const std::string& action, const std::string& val
 std::string AndroidClient::gearSnapshot() const
 {
     std::ostringstream out;
-    const std::optional<gearbox::Gear> current = gearshift_.current();
+    // No gear is in effect while Auto waits to hear a station.
+    const std::optional<gearbox::Gear> current = autoWaiting() ? std::nullopt : gearshift_.current();
     const std::optional<double> snr = gearshift_.pathSnr();
-    out << "{\"auto\":" << boolean(gearshift_.isAuto()) << ",\"path\":" << quoted(gearbox::pathKey(gearshift_.path()))
+    out << "{\"auto\":" << boolean(gearshift_.isAuto()) << ",\"waiting\":" << boolean(autoWaiting() && !gearshift_.ladder().empty()) << ",\"path\":" << quoted(gearbox::pathKey(gearshift_.path()))
         << ",\"pathLabel\":" << quoted(gearbox::pathLabel(gearshift_.path()))
         << ",\"hostThresholds\":" << boolean(gearshift_.hostThresholds())
         << ",\"mode\":" << quoted(current ? current->mode : std::string())
