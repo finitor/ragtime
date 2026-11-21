@@ -91,6 +91,12 @@ refused, the service still runs. Settings and core chat logs are
 app-private; UI drafts and the selected view survive activity recreation
 through saved state.
 
+While Ragtime is out of sight, notifications on the channel "Calls and
+messages" say that a station called, wrote to the operator with `@`,
+spoke in the ragchew or offers a file; a tap lands there, and returning
+to the app clears them. The activity is `singleTop`, so a tap never
+opens a second Ragtime.
+
 Broadcast numbering is saved before output is handed to a socket. Data is
 separated by callsign. A settings change rebuilds the connection; switching
 views does not. Broadcast and session drafts remain separate.
@@ -148,15 +154,16 @@ UTF-8 JSON escaping, session opening and durable broadcast numbering.
 through session and broadcast file transfers, with no device, and
 `ragtime_android_demo_test` runs demo mode's whole net with an adapter on
 it. `./gradlew :app:testDebugUnitTest` runs the demo guide's steps on the
-JVM. `DemoModeTest` and `AboutTest` (the notices) run on the device with
-the others and need no bench.
+JVM, and `AlertTrackerTest` what is worth a notification. `DemoModeTest`,
+`AboutTest` (the notices) and `AlertsTest` (a notification while out of
+sight) run on the device with the others and need no bench.
 
 Verified on 2026-11-21 with 0.1.0 build 2: both desktop adapter tests
 pass with the eight HostLink, Broadcast, Session and file CTest targets
 beside them; debug APK assembly and Android lint pass (0 errors, 11
 warnings for the provisional toolchain/ABI choices and missing launcher
 icon); and the tethered S26 (SM-S948U1, Android 17/API 37) passes the
-five fake-host tests, demo mode's and the notices' in 104 s (the broadcast file waits
+five fake-host tests, demo mode's, the notices' and the alerts' in 121 s (the broadcast file waits
 about 45 s for its seal and repair), over USB on offset ports with its
 own TNC left running. The system document picker, the
 notification's actions, screen lock, process death and performance are

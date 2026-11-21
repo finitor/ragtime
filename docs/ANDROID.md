@@ -63,6 +63,22 @@ licences and Google Play ask to be in the app
 Dial and rig integration, voice, inline pictures, reactions, automatic
 Hand answers and recent-contact prediction are not implemented.
 
+**Alerts** (2026-11-21). While no Ragtime window is in sight, a
+notification on its own channel, "Calls and messages", tells the
+operator that a station has called (a ragchew is answered by the modem,
+so this is the first they hear of it), has written to them with `@` on
+D2G, has said something in their ragchew, or offers them a file. A tap
+lands on that ragchew, on Broadcast or on Files, and coming back to
+Ragtime takes the alerts down. `AlertTracker` (`Alerts.kt`) finds them
+by comparing each snapshot with what it has already seen: what was there
+when the connection started, and what a new ragchew reads back from its
+log (the snapshot marks those lines `past`), alerts nobody. One
+notification a station and kind, its newest line replacing the last. In
+demo mode the title says "Demo:". Android's own settings for the channel
+turn them off; there is no switch in the app, and no way yet to refuse
+calls. Checked by `AlertTrackerTest` (JVM) and `AlertsTest` on the S26,
+on demo mode's net.
+
 What has been checked, and where:
 
 - Desktop CTest, no device: `ragtime_android_client_test` (fragmented
@@ -72,9 +88,9 @@ What has been checked, and where:
   broadcast file received and checked, rows kept across a restart and
   read back once, paths outside the station's folder refused).
 - The tethered S26 (SM-S948U1, Android 17/API 37), 0.1.0 build 2, against
-  the loopback fake-host bench over USB (2026-11-21, 104 s with demo
-  mode's and the notices' tests, 7 passed, the two real-modem tests
-  skipped; the bench's tests run twice on one bench with no restart):
+  the loopback fake-host bench over USB (2026-11-21, 121 s with demo
+  mode's, the notices' and the alerts' tests, 8 passed, the two
+  real-modem tests skipped; the bench's tests run twice on one bench with no restart):
   the packaged-JNI interop test (UTF-8 and emoji broadcast, addressed
   acknowledgements, session text, a session file saved byte for byte
   with its line in the ragchew, Leave, a broadcast file taken with

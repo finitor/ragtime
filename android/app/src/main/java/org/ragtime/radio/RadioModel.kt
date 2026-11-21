@@ -13,7 +13,8 @@ import java.io.File
 import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
-internal data class ChatRow(val id: Long, val from: String, val text: String, val to: String, val ours: Boolean, val time: Long, val state: String, val kind: Int)
+internal data class ChatRow(val id: Long, val from: String, val text: String, val to: String, val ours: Boolean, val time: Long, val state: String, val kind: Int,
+    val past: Boolean = false)
 internal data class StationRow(val call: String, val where: String, val status: String, val heard: String, val snr: String)
 internal data class TransferRow(val key:String,val via:String,val name:String,val peer:String,val state:String,val path:String,
     val size:Long,val done:Long,val time:Long,val ours:Boolean,val live:Boolean,val checked:Boolean,
@@ -22,7 +23,7 @@ internal data class RadioSnapshot(
     val connection: String = "Disconnected", val error: String = "", val ready: Boolean = false,
     val ptt: Boolean = false, val busy: Boolean = false, val paused: Boolean = false, val narrow: Boolean = false,
     val dataUp: Boolean = false, val mode: String = "", val channel: String = "", val peer: String = "",
-    val active: Boolean = false, val phase: Int = 0, val sessionStatus: String = "",
+    val active: Boolean = false, val phase: Int = 0, val incoming: Boolean = false, val sessionStatus: String = "",
     val broadcast: List<ChatRow> = emptyList(), val session: List<ChatRow> = emptyList(), val stations: List<StationRow> = emptyList(),
     val files:List<TransferRow> = emptyList()
 ) {
@@ -32,12 +33,12 @@ internal data class RadioSnapshot(
             fun rows(name: String): List<ChatRow> {
                 val array = j.getJSONArray(name)
                 return (0 until array.length()).map { i -> array.getJSONObject(i).let {
-                    ChatRow(it.getLong("id"),it.getString("from"),it.getString("text"),it.optString("to"),it.getBoolean("ours"),it.getLong("time"),it.getString("state"),it.getInt("kind"))
+                    ChatRow(it.getLong("id"),it.getString("from"),it.getString("text"),it.optString("to"),it.getBoolean("ours"),it.getLong("time"),it.getString("state"),it.getInt("kind"),it.optBoolean("past"))
                 } }
             }
             val stations = j.getJSONArray("stations")
             val files=j.optJSONArray("files")
-            return RadioSnapshot(ready=j.getBoolean("ready"),ptt=j.getBoolean("ptt"),busy=j.getBoolean("busy"),paused=j.getBoolean("paused"),narrow=j.getBoolean("narrow"),dataUp=j.getBoolean("dataUp"),mode=j.getString("mode"),channel=j.getString("channel"),peer=j.getString("peer"),active=j.getBoolean("active"),phase=j.getInt("phase"),sessionStatus=j.getString("sessionStatus"),broadcast=rows("broadcast"),session=rows("session"),stations=(0 until stations.length()).map { i -> stations.getJSONObject(i).let { StationRow(it.getString("call"),it.getString("where"),it.getString("status"),it.getString("heard"),it.getString("snr")) } },
+            return RadioSnapshot(ready=j.getBoolean("ready"),ptt=j.getBoolean("ptt"),busy=j.getBoolean("busy"),paused=j.getBoolean("paused"),narrow=j.getBoolean("narrow"),dataUp=j.getBoolean("dataUp"),mode=j.getString("mode"),channel=j.getString("channel"),peer=j.getString("peer"),active=j.getBoolean("active"),phase=j.getInt("phase"),incoming=j.optBoolean("incoming"),sessionStatus=j.getString("sessionStatus"),broadcast=rows("broadcast"),session=rows("session"),stations=(0 until stations.length()).map { i -> stations.getJSONObject(i).let { StationRow(it.getString("call"),it.getString("where"),it.getString("status"),it.getString("heard"),it.getString("snr")) } },
                 files=if(files==null)emptyList() else (0 until files.length()).map { i->files.getJSONObject(i).let {
                     TransferRow(it.getString("key"),it.getString("via"),it.getString("name"),it.getString("peer"),it.getString("state"),it.getString("path"),
                         it.getLong("size"),it.getLong("done"),it.getLong("time"),it.getBoolean("ours"),it.getBoolean("live"),it.getBoolean("checked"),
@@ -51,6 +52,14 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
     private val preferences = application.getSharedPreferences("radio", 0)
     var settings by mutableStateOf(HostSettings(preferences.getString("host", "")!!, preferences.getString("call", "")!!, preferences.getString("locator", "")!!, preferences.getInt("kiss",8100),preferences.getInt("command",8300),preferences.getBoolean("demo",false)))
         private set
+    /** A notification was tapped: the view it asks for, until the screen has gone there. */
+    var openRequest by mutableStateOf<String?>(null)
+    // Calls, lines addressed to the operator and file offers, told by a
+    // notification while no Ragtime window is in sight.
+    private val alertTracker=AlertTracker()
+    private val alerts by lazy { AlertNotifier(application) }
+    @Volatile private var visible=false
+    fun shown(inSight:Boolean) { visible=inSight;if(inSight)alerts.clear() }
     /** Demo mode is running: made-up stations on a net inside the app, no modem. */
     var demoActive by mutableStateOf(false)
         private set
@@ -118,6 +127,7 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
                 directory=File(files,"stations/"+valid.call.replace('/','_'))
             }
             stationDirectory=directory
+            alertTracker.reset()
             engine=Engine(valid.call,valid.locator,directory.absolutePath)
             lastJson="";requested=true;failures=0;retryAt=0;error="";status="Connecting";publish()
         } }
@@ -213,6 +223,11 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
         if(signature==lastJson)return
         lastJson=signature
         val value=if(json.isEmpty())RadioSnapshot() else RadioSnapshot.parse(json)
+        if(json.isNotEmpty()) {
+            // Told every snapshot, so that what was read in sight is not news later.
+            val news=alertTracker.update(value,link.call)
+            if(!visible) for(alert in news) runCatching { alerts.post(alert,link.demo) }
+        }
         val published=value.copy(connection=status,error=error)
         main.post { snapshot=published }
     }

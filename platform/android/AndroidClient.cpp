@@ -197,6 +197,7 @@ std::string AndroidClient::snapshot(uint64_t now) const
         << ",\"mode\":" << quoted(link_.lastDataMode().empty() ? link_.groupMode() : link_.lastDataMode())
         << ",\"channel\":" << quoted(link::channelLine(link_)) << ",\"peer\":" << quoted(session_.peer())
         << ",\"active\":" << boolean(session_.active()) << ",\"phase\":" << (int)session_.phase()
+        << ",\"incoming\":" << boolean(session_.incoming())
         << ",\"sessionStatus\":" << quoted(session_.strip(now).text) << ",\"broadcast\":[";
     bool first = true;
     for (const auto& m : broadcast_.messages())
@@ -217,7 +218,7 @@ std::string AndroidClient::snapshot(uint64_t now) const
         out << "{\"id\":" << m.id << ",\"from\":" << quoted(m.from) << ",\"text\":" << quoted(m.text)
             << ",\"ours\":" << boolean(m.ours) << ",\"time\":" << m.atMs
             << ",\"state\":" << quoted(m.kind == session::Message::Kind::File ? std::string() : session::stateLabel(m.state))
-            << ",\"kind\":" << (int)m.kind << '}';
+            << ",\"kind\":" << (int)m.kind << ",\"past\":" << boolean(m.past) << '}';
     };
     // This ragchew's finished files go in among its lines, by time.
     auto file = sessionFileLines_.begin();

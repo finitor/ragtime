@@ -88,6 +88,9 @@ int main()
 
         CHECK(a.client.action("call", "TESTB", now));
         CHECK(run(air, both, [&] { return a.has("phase", "2") && b.has("phase", "2"); }));
+        // Who called whom, for the phone's alert that a station has called.
+        CHECK(a.has("incoming", "false") && b.has("incoming", "true"));
+        CHECK(b.client.snapshot(now).find("\"past\":true") == std::string::npos);
 
         // A session file: offered, waiting for Receive, saved and checked.
         CHECK(a.client.action("file-offer", std::string("TESTB") + '\0' + notePath, now));
@@ -138,6 +141,8 @@ int main()
         CHECK(a.client.action("call", "TESTB", now));
         CHECK(run(air, both, [&] { return a.has("phase", "2") && b.has("phase", "2"); }));
         const std::string again = a.client.snapshot(now);
+        // What was said last time is marked as past, so nothing alerts for it.
+        CHECK(again.find("\"past\":true") != std::string::npos);
         const auto line = again.find("note.bin: Sent");
         CHECK(line != std::string::npos);
         CHECK(again.find("note.bin: Sent", line + 1) == std::string::npos);
