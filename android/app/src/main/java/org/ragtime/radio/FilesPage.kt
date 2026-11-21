@@ -40,7 +40,7 @@ private fun TransferCard(model:RadioModel,row:TransferRow,connected:Boolean,acti
         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
             Text(row.name,fontWeight=FontWeight.Medium)
             Text("${row.via} · ${if(row.ours)"To" else "From"} ${row.peer}",style=MaterialTheme.typography.bodySmall)
-            Text(row.state,style=MaterialTheme.typography.bodyMedium)
+            Text(row.shownState,style=MaterialTheme.typography.bodyMedium)
             if(row.pictureSource.isNotEmpty())InlinePicture(model,row.pictureSource,row.done,"Picture ${row.name}",maxWidth=200)
             if(row.size>0) {
                 LinearProgressIndicator(progress={(row.done.toFloat()/row.size).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())

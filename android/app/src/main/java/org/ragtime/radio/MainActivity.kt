@@ -191,7 +191,7 @@ private fun RadioApp(model: RadioModel) {
                 state.files.filter { it.live && if(thread=="Broadcast")it.via=="Broadcast" else it.via=="Session"&&it.peer==state.peer }
                     .take(2).forEach { file->
                         AssistChip(onClick={view="Files";returnTo=null},modifier=Modifier.padding(horizontal=16.dp),
-                            label={Text("${file.name} · ${file.state}",maxLines=1)})
+                            label={Text("${file.name} · ${file.shownState}",maxLines=1)})
                     }
                 if(thread=="Ragchew") {
                     Row(Modifier.fillMaxWidth().padding(horizontal=16.dp),verticalAlignment=Alignment.CenterVertically) {

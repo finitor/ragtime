@@ -82,6 +82,16 @@ class DemoGuideTest {
         assertEquals(GearState(),GearState.parse(null))
     }
 
+    @Test fun aBroadcastOfOursThatHasAllGoneSaysSent() {
+        fun row(via:String,ours:Boolean,state:String)=TransferRow("b:1",via,"news.txt","D2G",state,"",1200,1200,0,ours,true,false,false,false,true,false,false,"")
+        assertEquals("Sent. Open for repair requests: none so far",row("Broadcast",true,"Repairing, no requests yet").shownState)
+        assertEquals("Sent. Open for repair requests: 1 station asked",row("Broadcast",true,"Repairing, 1 station asked").shownState)
+        assertEquals("Sending, 3 of 18 pieces",row("Broadcast",true,"Sending, 3 of 18 pieces").shownState)
+        // Theirs, and anything in a ragchew, as the engines say it.
+        assertEquals("Repairing, asked W1QSO",row("Broadcast",false,"Repairing, asked W1QSO").shownState)
+        assertEquals("Moving",row("Session",true,"Moving").shownState)
+    }
+
     @Test fun demoSettingsNeedNoHostOrCallsign() {
         val demo=HostSettings(host="",call="",demo=true).validated()
         assertEquals(HostSettings.DEMO_CALL,demo.call)
