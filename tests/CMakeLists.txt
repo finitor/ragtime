@@ -13,6 +13,10 @@ function(ragtime_test name)
 endfunction()
 
 ragtime_test(ragtime_version_test VersionTest.cpp)
+ragtime_test(ragtime_android_client_test android/AndroidClientTest.cpp
+    ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
+    ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp)
+target_include_directories(ragtime_android_client_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
 ragtime_test(ragtime_sha256_test Sha256Test.cpp)
 ragtime_test(ragtime_parity_test ParityTest.cpp)
 ragtime_test(ragtime_ham_text_test HamTextTest.cpp)
@@ -27,6 +31,20 @@ ragtime_test(ragtime_arrival_player_test ArrivalPlayerTest.cpp)
 if(UNIX)
     ragtime_test(ragtime_fake_host_test FakeHostTest.cpp FakeHost.cpp)
     ragtime_test(ragtime_session_host_test SessionHostTest.cpp FakeHost.cpp)
+    # The Android adapter's file transfers, two of them on fake hosts.
+    ragtime_test(ragtime_android_files_test android/AndroidFilesTest.cpp FakeHost.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp)
+    target_include_directories(ragtime_android_files_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
+    # Android's demo mode: its made-up stations with an adapter among them.
+    ragtime_test(ragtime_android_demo_test android/AndroidDemoTest.cpp FakeHost.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/DemoAir.cpp)
+    target_include_directories(ragtime_android_demo_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android
+        ${CMAKE_CURRENT_SOURCE_DIR})
+    find_package(Threads REQUIRED)
+    target_link_libraries(ragtime_android_demo_test PRIVATE Threads::Threads)
     # A flight recording played back to a HostLink on loopback.
     ragtime_test(ragtime_replay_test ReplayTest.cpp ReplayHost.cpp FakeHost.cpp)
 
