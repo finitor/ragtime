@@ -165,7 +165,8 @@ in it, no audio is made and nothing reaches a modem or a radio.
 
 On the screen: the amber bar ("DEMO MODE  Simulated stations; nothing is
 sent.") covers the status bar's strip too and opens Settings. The Demo mode
-switch in Settings is the demo (Tim, 2026-11-21): turned on it starts the
+switch, last in Settings above its closing note, is the demo (Tim,
+2026-11-21): turned on it starts the
 demo and the sheet makes way, turned off it ends it at once, and Connect
 and Disconnect, which are for the operator's own modem, are not shown
 while it is on. It cannot be turned on from a ragchew on the air. The

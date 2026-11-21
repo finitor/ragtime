@@ -281,6 +281,7 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
     var kiss by rememberSaveable { mutableStateOf(model.settings.kiss.toString()) }
     var command by rememberSaveable { mutableStateOf(model.settings.command.toString()) }
     var error by remember { mutableStateOf("") }
+    var demoError by remember { mutableStateOf("") }
     // The switch shows what is so: on while the demo runs, however it was
     // started or ended (the notification can end it too).
     var demo by rememberSaveable { mutableStateOf(model.demoActive) }
@@ -317,25 +318,6 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
             Button(onClick={try { model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,false));onConnected() }catch(e:IllegalArgumentException){error=e.message?:"Check settings"}}) { Text("Connect") }
             OutlinedButton(onClick={model.disconnect()},enabled=state.connection!="Disconnected") { Text("Disconnect") }
         } }
-        // The switch is the demo: on starts it, off ends it, and no button
-        // repeats either. Not while in a ragchew on the air, which a slip of
-        // the thumb would otherwise leave.
-        item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
-            val onTheAir=state.active&&!model.demoActive
-            Column(Modifier.weight(1f).padding(end=12.dp)) {
-                Text("Demo mode")
-                Text(if(onTheAir)"Leave your ragchew before trying the demo." else "Practise with simulated stations inside the app. No modem is used and nothing is transmitted.",
-                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Switch(checked=demo,enabled=!onTheAir,modifier=Modifier.testTag("demo-switch"),onCheckedChange={ on->
-                error=""
-                if(on) try {
-                    model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,true))
-                    demo=true;onConnected()
-                } catch(e:IllegalArgumentException) { error=e.message?:"Check settings" }
-                else { demo=false;model.demoOff() }
-            })
-        } }
         // Calls and messages while Ragtime is out of sight. Android has the last
         // word on whether any notification shows, so say when it says no.
         item {
@@ -364,6 +346,28 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
             Text("Pause sending");Switch(checked=state.paused,onCheckedChange={model.action("pause",it.toString())},enabled=state.ready)
         } }
         item { OutlinedButton(onClick={model.action("checkin")},enabled=state.ready) { Text("Request roll call") } }
+        // Last, above the note: it is for trying Ragtime out, not for every day.
+        // The switch is the demo: on starts it, off ends it, and no button
+        // repeats either. Not while in a ragchew on the air, which a slip of
+        // the thumb would otherwise leave.
+        item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+            val onTheAir=state.active&&!model.demoActive
+            Column(Modifier.weight(1f).padding(end=12.dp)) {
+                Text("Demo mode")
+                Text(if(onTheAir)"Leave your ragchew before trying the demo." else "Practise with simulated stations inside the app. No modem is used and nothing is transmitted.",
+                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+            Switch(checked=demo,enabled=!onTheAir,modifier=Modifier.testTag("demo-switch"),onCheckedChange={ on->
+                error="";demoError=""
+                if(on) try {
+                    model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,true))
+                    demo=true;onConnected()
+                } catch(e:IllegalArgumentException) { demoError=e.message?:"Check settings" }
+                else { demo=false;model.demoOff() }
+            })
+        } }
+        // Said beside the switch: the fields it complains of are a screen away.
+        if(demoError.isNotEmpty())item { Text(demoError,color=MaterialTheme.colorScheme.error) }
         item { Text(if(demo)"Demo mode keeps its own history, apart from your station's, and starts fresh each time." else "The modem runs on your separate Data2G host. Ragtime keeps running when you switch to other apps. If you have notifications enabled, you can tap the notification to reopen Ragtime, or tap Disconnect on the notification to end the connection.",style=MaterialTheme.typography.bodySmall) }
     }
 }
