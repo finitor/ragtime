@@ -58,7 +58,10 @@ The session data stream retries independently every five seconds.
 
 ## Runtime policy
 
-Settings (the gear) has the callsign and locator first, then the host, with a
+Settings (the gear) has the callsign and locator first, then the host and
+ports with Connect and Disconnect right under them: Connect checks and
+saves those fields and connects to that modem, Disconnect ends the
+connection. The host field has a
 **localhost** button that fills in 127.0.0.1 and ports 8100 and 8300 for a
 Data2G TNC on the same phone. Not connected, the tip on Stations opens the
 sheet. Under the callsign it says that the callsign and locator go out
