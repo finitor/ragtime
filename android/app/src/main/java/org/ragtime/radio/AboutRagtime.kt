@@ -38,6 +38,7 @@ internal fun AboutRagtime(onNotice:(Notice)->Unit,onDismiss:()->Unit) {
                     ,"Disconnect leaves an active ragchew at the modem, so the next Connect can call again."
                     ,"Demo mode in Settings: practise with simulated stations that check in, answer you, take a call and trade files. A guide suggests what to try; nothing is transmitted."
                     ,"Privacy and Open source licences are in About, and Privacy is in Settings too."
+                    ,"Turning the Demo mode switch off ends the demo at once."
                     ,"Settings: callsign and locator come first, and a localhost shortcut fills in Data2G running on this phone."
                 )) { note->Text("• $note") }
                 item { Text("Inline picture and voice playback are not included in this build.",style=MaterialTheme.typography.bodySmall) }
