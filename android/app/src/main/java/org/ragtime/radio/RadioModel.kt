@@ -30,6 +30,18 @@ internal data class TransferRow(val key:String,val via:String,val name:String,va
     val receive:Boolean,val decline:Boolean,val cancel:Boolean,val resume:Boolean,val forget:Boolean,val error:String,
     val picture:Boolean=false) {
     val pictureSource: String get() = if(!picture) "" else if(live&&(key.startsWith("s:")||key.startsWith("b:"))) key else if(path.isNotEmpty()) "p:$path" else ""
+    /**
+     * The state as the phone says it. A file of ours on D2G that has all gone stays open for a
+     * while for stations to ask for pieces they missed; the engines call that "Repairing", which
+     * reads like a fault when it is the good ending.
+     */
+    val shownState: String get() = if(via=="Broadcast"&&ours&&state.startsWith("Repairing")) {
+        val rest=state.removePrefix("Repairing").trimStart(',',' ')
+        when {
+            rest.isEmpty()||rest.startsWith("no requests") -> "Sent. Open for repair requests: none so far"
+            else -> "Sent. Open for repair requests: $rest"
+        }
+    } else state
 }
 internal data class RadioSnapshot(
     val connection: String = "Disconnected", val error: String = "", val ready: Boolean = false,
