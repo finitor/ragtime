@@ -29,6 +29,9 @@ class RealModemFileTest {
         val call=arguments.getString("pilotCall") ?: "W1AAA"
         val peer=arguments.getString("pilotPeer") ?: "W1BBB"
         val size=(arguments.getString("pilotBytes") ?: "1200").toInt()
+        // How long to stay on the air after the broadcast file's pieces have gone, for its seal and
+        // the repairs a station may ask for: a file that was talked over needs minutes, not seconds.
+        val settle=(arguments.getString("pilotSettle") ?: "90").toLong()*1000
         val settings=HostSettings(host,call,arguments.getString("pilotLocator") ?: "CN87",
             (arguments.getString("pilotKiss") ?: "18100").toInt(),(arguments.getString("pilotCommand") ?: "18300").toInt())
         val context=InstrumentationRegistry.getInstrumentation().targetContext
@@ -74,8 +77,8 @@ class RealModemFileTest {
             app.waitUntil(600000) { row(broadcastFile.name,"Broadcast").any { it.ours&&it.size>0&&it.done>=it.size } }
             result.put("broadcast_pieces_gone_ms",elapsed())
             // The seal follows the pieces; a far end that missed one asks then.
-            val settle=System.currentTimeMillis()+90000
-            app.waitUntil(120000) { System.currentTimeMillis()>=settle }
+            val until=System.currentTimeMillis()+settle
+            app.waitUntil(settle+30000) { System.currentTimeMillis()>=until }
             result.put("broadcast_state",row(broadcastFile.name,"Broadcast").firstOrNull()?.state ?: "")
             result.put("result","pass")
         } catch(e:Throwable) {

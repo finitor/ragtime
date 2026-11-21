@@ -145,6 +145,10 @@ def serve(args):
                    "[Radio]\nSource=none\nUsSegmentsOnly=0\n"
                    "[Hamlib]\nKeyRig=0\nEarFilters=0\n"
                    "[Broadcast]\nSealChat=0\nAnswerRollCalls=0\n"
+                   # Auto, as an operator on a good path would have it: left in
+                   # its lowest gear the desktop takes 15 s to say anything, and
+                   # covers what the phone sends meanwhile.
+                   "[Gearshift]\nAuto=1\n"
                    f"[Files]\nReceivedFolder={work / 'received'}\n")
         if args.auto_files:
             # Unattended file acceptance: session files from these calls and
