@@ -240,7 +240,7 @@ void BroadcastChat::setSettings(const Settings& settings, uint32_t newestItem)
     next.callsign = protocol::normalCallsign(settings.callsign);
     bool newCall = next.callsign != settings_.callsign || numbering_.callsign() != next.callsign;
     bool changed = newCall || next.locator != settings_.locator || next.acceptsSessions != settings_.acceptsSessions
-                   || next.software != settings_.software;
+                   || next.software != settings_.software || next.takes != settings_.takes;
     settings_ = next;
     if (newCall) numbering_ = protocol::Numbering(settings_.callsign, newestItem);
     if (changed) helloSent_ = false;
@@ -275,6 +275,7 @@ std::vector<text::HamText::PhraseSpan> BroadcastChat::phrases(const std::string&
 protocol::Record BroadcastChat::helloRecord(uint32_t time)
 {
     protocol::Hello hello;
+    hello.takes = settings_.takes;
     hello.acceptsSessions = settings_.acceptsSessions;
     hello.locator = settings_.locator;
     hello.software = settings_.software;

@@ -933,6 +933,7 @@ void SessionChat::begin(const std::string& peer, bool incoming, int bandwidth, u
     }
 
     protocol::Hello hello;
+    hello.takes = settings_.takes;
     hello.acceptsSessions = settings_.acceptsSessions;
     hello.locator = settings_.locator;
     hello.software = settings_.software;

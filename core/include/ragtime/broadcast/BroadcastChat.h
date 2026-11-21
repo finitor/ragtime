@@ -248,6 +248,7 @@ public:
         bool acceptsSessions = true;
         std::string software;       // "Ragtime 0.1.0"
         bool answerRollCalls = true;    // check in by Hand to the roll calls heard
+        uint8_t takes = protocol::TAKES_ALL_V0; // adapters can advertise a smaller feature set
     };
 
     explicit BroadcastChat(link::HostLink& link);
