@@ -27,6 +27,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -91,7 +92,9 @@ private fun RadioApp(model: RadioModel) {
     val saver=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri:Uri?->
         if(uri!=null)model.exportFile(exportPath,exportName,uri)
     }
-    val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { }
+    // Counted, so Settings looks again at what Android allows once the operator has answered.
+    var asked by remember { mutableStateOf(0) }
+    val notificationPermission=rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { asked++ }
     fun pickFile(target:String) { pickTarget=target;pickStation=model.settings.call;picker.launch(arrayOf("*/*")) }
     fun saveFile(row:TransferRow) { exportPath=row.path;exportName=row.name;saver.launch(row.name) }
     val chat=view=="Conversations"||view=="Field desk"
@@ -216,7 +219,8 @@ private fun RadioApp(model: RadioModel) {
         HostControls(model,onConnected={
             radio=false;tips=true
             if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS)
-        },onAbout={radio=false;about=true},onPrivacy={notice=Notice.Privacy})
+        },onAbout={radio=false;about=true},onPrivacy={notice=Notice.Privacy},asked=asked,
+            onAskNotifications={ if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) })
     }
     if(about) AboutRagtime(onNotice={notice=it}) { about=false }
     notice?.let { NoticeSheet(it) { notice=null } }
@@ -269,7 +273,7 @@ private fun MessageRow(row: ChatRow, compact: Boolean, onFile:()->Unit) {
 }
 
 @Composable
-private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()->Unit, onPrivacy:()->Unit) {
+private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()->Unit, onPrivacy:()->Unit, asked:Int, onAskNotifications:()->Unit) {
     val state=model.snapshot
     var host by rememberSaveable { mutableStateOf(model.settings.host) }
     var call by rememberSaveable { mutableStateOf(model.settings.call) }
@@ -332,6 +336,27 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
                 else { demo=false;model.demoOff() }
             })
         } }
+        // Calls and messages while Ragtime is out of sight. Android has the last
+        // word on whether any notification shows, so say when it says no.
+        item {
+            val context=LocalContext.current
+            val allowed=remember(asked,model.alertsOn) { context.getSystemService(android.app.NotificationManager::class.java).areNotificationsEnabled() }
+            Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+                Column(Modifier.weight(1f).padding(end=12.dp)) {
+                    Text("Notify me of calls and messages")
+                    Text(if(model.alertsOn&&!allowed)"Android is blocking Ragtime's notifications." else "When a station calls you, writes to you or offers a file while Ragtime is in the background.",
+                        style=MaterialTheme.typography.bodySmall,color=if(model.alertsOn&&!allowed)MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant)
+                    if(model.alertsOn&&!allowed)TextButton(contentPadding=PaddingValues(0.dp),onClick={
+                        context.startActivity(android.content.Intent(android.provider.Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                            .putExtra(android.provider.Settings.EXTRA_APP_PACKAGE,context.packageName))
+                    }) { Text("Open Android's notification settings") }
+                }
+                Switch(checked=model.alertsOn,modifier=Modifier.testTag("alerts-switch"),onCheckedChange={ on->
+                    model.setAlerts(on)
+                    if(on)onAskNotifications()
+                })
+            }
+        }
         item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
             Text("500 Hz modes only");Switch(checked=state.narrow,onCheckedChange={model.action("narrow",it.toString())},enabled=state.ready)
         } }

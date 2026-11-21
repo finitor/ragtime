@@ -60,6 +60,15 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
     private val alerts by lazy { AlertNotifier(application) }
     @Volatile private var visible=false
     fun shown(inSight:Boolean) { visible=inSight;if(inSight)alerts.clear() }
+    /** Settings > Notify me of calls and messages. On unless the operator says otherwise. */
+    var alertsOn by mutableStateOf(preferences.getBoolean("alerts",true))
+        private set
+    @Volatile private var alerting=preferences.getBoolean("alerts",true)
+    fun setAlerts(on:Boolean) {
+        alertsOn=on;alerting=on
+        preferences.edit().putBoolean("alerts",on).apply()
+        if(!on)alerts.clear()
+    }
     /** Demo mode is running: made-up stations on a net inside the app, no modem. */
     var demoActive by mutableStateOf(false)
         private set
@@ -226,7 +235,7 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
         if(json.isNotEmpty()) {
             // Told every snapshot, so that what was read in sight is not news later.
             val news=alertTracker.update(value,link.call)
-            if(!visible) for(alert in news) runCatching { alerts.post(alert,link.demo) }
+            if(!visible&&alerting) for(alert in news) runCatching { alerts.post(alert,link.demo) }
         }
         val published=value.copy(connection=status,error=error)
         main.post { snapshot=published }

@@ -33,8 +33,17 @@ class AlertsTest {
             assertTrue(sent)
             assertTrue("Nothing is notified while Ragtime is in sight",alerts().isEmpty())
 
-            // Out of sight, the same reply is told.
-            app.runOnUiThread { model.action("broadcast","@W1QSO second, out of sight") }
+            // Out of sight with the Settings switch off, nothing is told either.
+            app.runOnUiThread { model.setAlerts(false);model.action("broadcast","@W1QSO second, switched off") }
+            app.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
+            val heard=android.os.SystemClock.elapsedRealtime()+40000
+            while(model.snapshot.broadcast.count { !it.ours&&it.to==call&&it.from=="W1QSO" }<2&&android.os.SystemClock.elapsedRealtime()<heard) android.os.SystemClock.sleep(200)
+            assertEquals(2,model.snapshot.broadcast.count { !it.ours&&it.to==call&&it.from=="W1QSO" })
+            assertTrue("Nothing is notified with the switch off",alerts().isEmpty())
+            app.activityRule.scenario.moveToState(Lifecycle.State.RESUMED)
+
+            // Out of sight with it on, the same reply is told.
+            app.runOnUiThread { model.setAlerts(true);model.action("broadcast","@W1QSO third, out of sight") }
             app.activityRule.scenario.moveToState(Lifecycle.State.CREATED)
             val deadline=android.os.SystemClock.elapsedRealtime()+40000
             while(alerts().isEmpty()&&android.os.SystemClock.elapsedRealtime()<deadline) android.os.SystemClock.sleep(200)
@@ -55,8 +64,16 @@ class AlertsTest {
             app.onNodeWithText("To everyone on D2G").assertExists()
             app.runOnUiThread { model.openRequest="Files" }
             app.onNodeWithText("Send a file").assertExists()
+
+            // The switch in Settings is that setting, and it is kept.
+            app.onNodeWithContentDescription("Settings").performClick()
+            app.onNodeWithTag("alerts-switch").performScrollTo().assertIsOn().performClick()
+            app.waitUntil(5000) { !model.alertsOn }
+            app.onNodeWithTag("alerts-switch").assertIsOff().performClick()
+            app.waitUntil(5000) { model.alertsOn }
+            androidx.test.espresso.Espresso.pressBack()
         } finally {
-            app.runOnUiThread { model.demoOff() }
+            app.runOnUiThread { model.setAlerts(true);model.demoOff() }
         }
     }
 }

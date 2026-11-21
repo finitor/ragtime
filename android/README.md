@@ -94,7 +94,8 @@ through saved state.
 While Ragtime is out of sight, notifications on the channel "Calls and
 messages" say that a station called, wrote to the operator with `@`,
 spoke in the ragchew or offers a file; a tap lands there, and returning
-to the app clears them. The activity is `singleTop`, so a tap never
+to the app clears them. "Notify me of calls and messages" in Settings
+turns them off and on. The activity is `singleTop`, so a tap never
 opens a second Ragtime.
 
 Broadcast numbering is saved before output is handed to a socket. Data is
