@@ -34,6 +34,11 @@ public:
     void tick(uint64_t now);
     bool action(const std::string& name, const std::string& value, uint64_t now);
     std::string snapshot(uint64_t now) const;
+    // An inline picture's bytes as they stand, for AndroidPictures to decode
+    // off the worker: "s:ID" one in the ragchew, "b:ID" one on D2G (either
+    // still arriving, any first part of it the whole picture), or "p:PATH" a
+    // finished one, under this station's own folder. Empty if there are none.
+    std::vector<uint8_t> pictureBytes(const std::string& key, uint64_t now) const;
     const link::HostLink& link() const { return link_; }
 
 private:

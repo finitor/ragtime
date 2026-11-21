@@ -1,10 +1,15 @@
 #include "AndroidClient.h"
 
+#include <algorithm>
 #include <filesystem>
 #include <fstream>
+#include <iterator>
 #include <sstream>
 #include <stdexcept>
+#include <utility>
 
+#include "AndroidPictures.h"
+#include "ragtime/picture/Picture.h"
 #include "ragtime/protocol/Fields.h"
 
 namespace ragtime::android
@@ -54,6 +59,13 @@ AndroidClient::AndroidClient(const std::string& call, const std::string& locator
     session_.setLog(&sessionLog_);
     session_.setTraffic(&fileTraffic_);
     loadFileState(now);
+    // Pictures up to 64 KB come without asking, from anyone, and show as
+    // they come, as on the desktop.
+    if (picturesAvailable())
+    {
+        sessionFiles_.setAutoPictures(directory_ + "/received", picture::AUTO_PICTURE_BYTES);
+        broadcastFiles_.setAutoPictures(directory_ + "/received", picture::AUTO_PICTURE_BYTES);
+    }
     broadcastFiles_.setPartsFolder(directory_ + "/broadcast-parts", now);
     stations_.setMyCallsign(link_.settings().callsign);
     stations_.setHome(locator);
@@ -163,7 +175,7 @@ bool AndroidClient::action(const std::string& name, const std::string& value, ui
 {
     now_ = now;
     bool ok = false;
-    if (name.compare(0, 5, "file-") == 0) ok = fileAction(name, value, now);
+    if (name.compare(0, 5, "file-") == 0 || name.compare(0, 8, "picture-") == 0) ok = fileAction(name, value, now);
     else if (name == "broadcast") ok = link_.groupOpen() && !broadcast_.send(value, "", now).empty();
     else if (name == "session") ok = session_.send(value, now) != 0;
     else if (name == "call") ok = session_.call(checkedCall(value), now);
@@ -175,6 +187,30 @@ bool AndroidClient::action(const std::string& name, const std::string& value, ui
     else throw std::invalid_argument("Unknown action");
     events(now);
     return ok;
+}
+std::vector<uint8_t> AndroidClient::pictureBytes(const std::string& key, uint64_t) const
+{
+    std::vector<uint8_t> out;
+    if (key.size() < 3 || key[1] != ':') return out;
+    if (key[0] == 'p')
+    {
+        // A finished picture: only ever a file of this station's own.
+        const auto base = std::filesystem::weakly_canonical(directory_);
+        const auto path = std::filesystem::weakly_canonical(files::pathFromUtf8(key.substr(2)));
+        const auto relative = path.lexically_relative(base);
+        if (relative.empty() || *relative.begin() == ".." || !std::filesystem::is_regular_file(path)) return out;
+        if (std::filesystem::file_size(path) > picture::MAX_PICTURE_BYTES) return out;
+        std::ifstream in(path, std::ios::binary);
+        out.assign(std::istreambuf_iterator<char>(in), {});
+        return out;
+    }
+    size_t used = 0;
+    uint64_t id = 0;
+    try { id = std::stoull(key.substr(2), &used); } catch (const std::exception&) { return out; }
+    if (used != key.size() - 2) return out;
+    if (key[0] == 's') sessionFiles_.pictureBytes(id, out);
+    else if (key[0] == 'b') broadcastFiles_.pictureBytes(id, out);
+    return out;
 }
 void AndroidClient::saveNumber()
 {
@@ -207,27 +243,57 @@ std::string AndroidClient::snapshot(uint64_t now) const
         std::string text = m.text;
         if (m.kind == broadcast::Message::Kind::Ping) text = broadcast::pingLine(m);
         if (m.kind == broadcast::Message::Kind::RollCall) text = broadcast::rollCallLine(m);
+        // A file's card: still with the file engine (its key, for a picture's
+        // bytes as they come), or a line from the log (its path).
+        std::string file;
+        bool isPicture = m.picture;
+        broadcast::BroadcastFile live;
+        if (m.kind == broadcast::Message::Kind::File && m.file != 0 && broadcastFiles_.find(m.file, now, live))
+        {
+            file = "b:" + std::to_string(m.file);
+            isPicture = live.picture;
+        }
         out << "{\"id\":" << m.id << ",\"from\":" << quoted(m.from) << ",\"text\":" << quoted(text)
             << ",\"to\":" << quoted(m.to) << ",\"ours\":" << boolean(m.ours) << ",\"time\":" << m.atMs
-            << ",\"state\":" << quoted(m.kind == broadcast::Message::Kind::File ? m.outcome : broadcast::stateLabel(m.state)) << ",\"kind\":" << (int)m.kind << '}';
+            << ",\"state\":" << quoted(m.kind == broadcast::Message::Kind::File ? m.outcome : broadcast::stateLabel(m.state)) << ",\"kind\":" << (int)m.kind
+            << ",\"file\":" << quoted(file) << ",\"path\":" << quoted(m.path) << ",\"picture\":" << boolean(isPicture) << '}';
     }
     out << "],\"session\":["; first = true;
-    auto sessionRow = [&](const session::Message& m) {
+    auto sessionRow = [&](const session::Message& m, const std::string& file) {
         if (!first) out << ',';
         first = false;
         out << "{\"id\":" << m.id << ",\"from\":" << quoted(m.from) << ",\"text\":" << quoted(m.text)
             << ",\"ours\":" << boolean(m.ours) << ",\"time\":" << m.atMs
             << ",\"state\":" << quoted(m.kind == session::Message::Kind::File ? std::string() : session::stateLabel(m.state))
-            << ",\"kind\":" << (int)m.kind << ",\"past\":" << boolean(m.past) << '}';
+            << ",\"kind\":" << (int)m.kind << ",\"past\":" << boolean(m.past)
+            << ",\"file\":" << quoted(file) << ",\"path\":" << quoted(m.path) << ",\"picture\":" << boolean(m.picture) << '}';
     };
-    // This ragchew's finished files go in among its lines, by time.
-    auto file = sessionFileLines_.begin();
+    // This ragchew's files go in among its lines, by time: the finished
+    // ones, and the pictures still coming or going, which show as they do.
+    std::vector<std::pair<session::Message, std::string>> lines;
+    for (const auto& line : sessionFileLines_) lines.push_back({line, std::string()});
+    for (const auto& r : fileTraffic_.rows(now))
+    {
+        const auto* t = sessionFiles_.transfer(r.id);
+        if (t == nullptr || !t->picture || r.look == files::FileRow::Look::Kept || r.peer != session_.peer()) continue;
+        session::Message line;
+        line.id = (uint64_t(1) << 61) + r.id;
+        line.kind = session::Message::Kind::File;
+        line.ours = r.outgoing;
+        line.from = r.outgoing ? link_.settings().callsign : r.peer;
+        line.atMs = r.atMs;
+        line.text = r.name + ": " + r.state;
+        line.picture = true;
+        lines.push_back({line, "s:" + std::to_string(r.id)});
+    }
+    std::stable_sort(lines.begin(), lines.end(), [](const auto& a, const auto& b) { return a.first.atMs < b.first.atMs; });
+    auto file = lines.begin();
     for (const auto& m : session_.messages())
     {
-        for (; file != sessionFileLines_.end() && file->atMs < m.atMs; ++file) sessionRow(*file);
-        sessionRow(m);
+        for (; file != lines.end() && file->first.atMs < m.atMs; ++file) sessionRow(file->first, file->second);
+        sessionRow(m, std::string());
     }
-    for (; file != sessionFileLines_.end(); ++file) sessionRow(*file);
+    for (; file != lines.end(); ++file) sessionRow(file->first, file->second);
     out << "],\"stations\":["; first = true;
     for (const auto* s : stations_.sorted(broadcast::Column::Heard, true, now))
     {

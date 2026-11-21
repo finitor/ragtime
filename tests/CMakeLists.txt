@@ -16,6 +16,8 @@ ragtime_test(ragtime_version_test VersionTest.cpp)
 ragtime_test(ragtime_android_client_test android/AndroidClientTest.cpp
     ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
     ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp)
+target_sources(ragtime_android_client_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
+target_link_libraries(ragtime_android_client_test PRIVATE ragtime_image)
 target_include_directories(ragtime_android_client_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
 ragtime_test(ragtime_sha256_test Sha256Test.cpp)
 ragtime_test(ragtime_parity_test ParityTest.cpp)
@@ -35,16 +37,26 @@ if(UNIX)
     ragtime_test(ragtime_android_files_test android/AndroidFilesTest.cpp FakeHost.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp)
+    target_sources(ragtime_android_files_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
+    target_link_libraries(ragtime_android_files_test PRIVATE ragtime_image)
     target_include_directories(ragtime_android_files_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
+    # Inline pictures through the adapter (skips itself without the codecs).
+    ragtime_test(ragtime_android_pictures_test android/AndroidPicturesTest.cpp FakeHost.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
+    target_include_directories(ragtime_android_pictures_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android)
+    target_link_libraries(ragtime_android_pictures_test PRIVATE ragtime_image)
     # Android's demo mode: its made-up stations with an adapter among them.
     ragtime_test(ragtime_android_demo_test android/AndroidDemoTest.cpp FakeHost.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidClient.cpp
         ${PROJECT_SOURCE_DIR}/platform/android/AndroidFiles.cpp
-        ${PROJECT_SOURCE_DIR}/platform/android/DemoAir.cpp)
+        ${PROJECT_SOURCE_DIR}/platform/android/DemoAir.cpp
+        ${PROJECT_SOURCE_DIR}/platform/android/AndroidPictures.cpp)
     target_include_directories(ragtime_android_demo_test PRIVATE ${PROJECT_SOURCE_DIR}/platform/android
         ${CMAKE_CURRENT_SOURCE_DIR})
     find_package(Threads REQUIRED)
-    target_link_libraries(ragtime_android_demo_test PRIVATE Threads::Threads)
+    target_link_libraries(ragtime_android_demo_test PRIVATE Threads::Threads ragtime_image)
     # A flight recording played back to a HostLink on loopback.
     ragtime_test(ragtime_replay_test ReplayTest.cpp ReplayHost.cpp FakeHost.cpp)
 
