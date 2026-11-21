@@ -3,7 +3,11 @@
 compile_commands.json
 __pycache__/
 /packaging/linux/tools/
-/dist/
+# Build output, but for what is handed to testers, which is kept with the
+# branch it was built from (dist/android/).
+/dist/*
+!/dist/android/
+.DS_Store
 /android/.gradle/
 /android/.kotlin/
 /android/local.properties
