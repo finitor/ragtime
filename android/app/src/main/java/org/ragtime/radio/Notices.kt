@@ -53,11 +53,23 @@ private fun legal(text: String)=text.trim('\n').split(Regex("\n\\s*\n")).map { N
  * Ragtime's own copyright line and MIT text, and the Apache License for the
  * libraries under it. Redo the audit when a dependency changes.
  */
-internal fun licenceParts(ragtime: String, apache: String): List<NoticePart> = buildList {
+internal fun licenceParts(ragtime: String, apache: String, openjpeg: String = "", coolchic: String = "", soap: String = ""): List<NoticePart> = buildList {
     add(NoticePart(NoticePart.Kind.Title,"Open source licences"))
     add(NoticePart(NoticePart.Kind.Heading,"Ragtime"))
     add(NoticePart(NoticePart.Kind.Paragraph,"Ragtime for Android is Ragtime's own code throughout: the engines it shares with the desktop app, and this app around them. It is free software under the MIT License."))
     addAll(legal(ragtime))
+    // The picture codecs, built into the app's own library.
+    if(openjpeg.isNotBlank()) {
+        add(NoticePart(NoticePart.Kind.Heading,"OpenJPEG"))
+        add(NoticePart(NoticePart.Kind.Paragraph,"Pictures go on the air as JPEG 2000, written and read by OpenJPEG, under the 2-clause BSD License."))
+        addAll(legal(openjpeg))
+    }
+    if(coolchic.isNotBlank()) {
+        add(NoticePart(NoticePart.Kind.Heading,"Cool-chic"))
+        add(NoticePart(NoticePart.Kind.Paragraph,"Pictures a desktop Ragtime sends as Cool-chic are read by Ragtime's port of Orange's Cool-chic codec, under the 3-clause BSD License. Its fitting code follows the SOAP optimiser, under the MIT License."))
+        addAll(legal(coolchic))
+        if(soap.isNotBlank()) addAll(legal(soap))
+    }
     add(NoticePart(NoticePart.Kind.Heading,"Libraries under the Apache License 2.0"))
     add(NoticePart(NoticePart.Kind.Bullet,"AndroidX and Jetpack Compose, with Material 3 and the Material icons. The Android Open Source Project."))
     add(NoticePart(NoticePart.Kind.Bullet,"The Kotlin standard library and kotlinx.coroutines. JetBrains s.r.o. and the Kotlin contributors."))
@@ -78,7 +90,8 @@ internal fun NoticeSheet(notice: Notice, onDismiss: () -> Unit) {
         fun asset(name: String)=runCatching { context.assets.open(name).bufferedReader().use { it.readText() } }.getOrDefault("")
         when(notice) {
             Notice.Privacy -> noticeParts(asset("privacy.md"))
-            Notice.Licences -> licenceParts(asset("licenses/ragtime-mit.txt"),asset("licenses/apache-2.0.txt"))
+            Notice.Licences -> licenceParts(asset("licenses/ragtime-mit.txt"),asset("licenses/apache-2.0.txt"),
+                asset("licenses/openjpeg.txt"),asset("licenses/coolchic-bsd-3.txt"),asset("licenses/soap-mit.txt"))
         }
     }
     ModalBottomSheet(onDismissRequest=onDismiss,sheetState=rememberModalBottomSheetState(skipPartiallyExpanded=true)) {

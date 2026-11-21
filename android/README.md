@@ -8,9 +8,10 @@ Build 0.1.0 supports external-host broadcast and session text, addressed
 acknowledgements, station discovery, explicit Call/Leave, pause, narrow
 modes, reconnect, native chat history, and session and broadcast files up
 to 300 KB through Android's document picker. Connect starts a foreground
-service, so the connection outlives switching apps. Pictures and voice
-arrive as plain files; rig control, reactions and recent-contact
-prediction are not implemented. Field desk shows actual host
+service, so the connection outlives switching apps. Pictures show inline
+and are sent from the + beside the entry line; voice messages arrive as
+plain files; rig control, reactions and recent-contact prediction are
+not implemented. Field desk shows actual host
 mode/channel reports; dial frequency needs a separate rig adapter.
 The Hello capability mask says text, status, seals, pings and files, not
 reactions, and automatic Hand answers are off until this client supports
@@ -50,7 +51,9 @@ in Android Studio to run it. Configure your separately running
 command + 1. The app does not bundle, launch, or replace the modem.
 
 The Gradle project builds the existing core with PIC and desktop/audio
-dependencies disabled. JNI uses byte arrays for standard UTF-8, opaque
+dependencies disabled. For pictures it clones OpenJPEG 2.5.3 from GitHub
+the first time it configures (`cmake/FetchOpenJpeg.cmake`) and builds it
+into `libragtime_jni.so`, so that build needs the network once. JNI uses byte arrays for standard UTF-8, opaque
 registered handles, and exception boundaries. All engine calls and three
 nonblocking TCP streams belong to one worker. Partial writes remain queued;
 KISS/command failure reconnects both with 2/4/8/15/30-second backoff.

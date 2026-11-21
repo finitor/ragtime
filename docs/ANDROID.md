@@ -53,7 +53,34 @@ and broadcast files (digest check, repairs asked for), through Android's
 document picker in and out, up to 300 KB, with the history kept in
 app-private storage. A finished session file has its line in the ragchew.
 The Hello now says the phone takes session and broadcast files; it still
-leaves out reactions, pictures and voice, which arrive as plain files.
+leaves out reactions. Pictures show inline (below); voice messages
+arrive as plain files.
+
+**Pictures** (2026-11-21). What the desktop does with pictures, the phone
+does: one from the air is a JPEG 2000 codestream (kind `0x01`) or a
+Cool-chic stream (`0x02`), nothing else is ever decoded, and it shows
+under its line in Broadcast or the ragchew, softer at first and sharper
+as more of it comes. Up to 64 KB it comes without asking, from anyone;
+bigger ones wait for Receive like any file. A tap shows it alone on
+black, with pinch to zoom. To send one, the + beside the entry line
+offers Picture: Android's photo picker (no permission), and Android
+itself reads whatever it can (JPEG, PNG, WebP, HEIF, GIF, BMP), turned
+the right way up. The sheet shows the picture as the far end will see
+it, decoded from the very bytes that will go, with its longest side
+(320, 640 or 1024; 640 as on the desktop) and its size on the air (4, 8,
+16 or 32 KB) to choose. It is shrunk with the desktop's
+detail-preserving downscaler and coded as progressive JPEG 2000, named
+`<picked name>.j2k`.
+
+The codecs are the desktop's own (`image/`): OpenJPEG 2.5.3, fetched and
+built into the app's library (`cmake/FetchOpenJpeg.cmake`), and the
+Cool-chic port. `platform/android/AndroidPictures` is the bridge, pixels
+in and pixels out, and holds no client: a picture's bytes are fetched on
+the link's worker (`pictureBytes`: from the file engines while it moves,
+from the station's own folder after) and decoded on a thread of their
+own, since a Cool-chic picture takes seconds. Not there yet: sending
+Cool-chic (its fitting takes minutes of CPU), an airtime estimate in the
+sheet, and the stop sign for a picture that is good enough.
 
 Connect starts a foreground service with an ongoing notification (open,
 Disconnect), so the connection and a ragchew outlive switching apps. A
@@ -84,6 +111,13 @@ on demo mode's net.
 
 What has been checked, and where:
 
+- Desktop CTest in a tree with the codecs (`-DRAGTIME_FETCH_OPENJPEG=ON`):
+  `ragtime_android_pictures_test`, a picture coded within its bytes and
+  shown from any first part, sent in a ragchew and on D2G, taken without
+  asking and shown from its key and from its path, and nothing read from
+  outside the station's folder. On the S26: `PicturesTest` (the codecs
+  through JNI; a picture made ready, its size changed, broadcast, shown
+  inline and opened) and the interop test's picture between two engines.
 - Desktop CTest, no device: `ragtime_android_client_test` (fragmented
   command input, the Hello masks, UTF-8 JSON, durable numbering) and
   `ragtime_android_files_test` (two adapters on fake hosts: a session
@@ -92,8 +126,8 @@ What has been checked, and where:
   read back once, paths outside the station's folder refused).
 - The tethered S26 (SM-S948U1, Android 17/API 37), 0.1.0 build 2, against
   the loopback fake-host bench over USB (2026-11-21, 121 s with demo
-  mode's, the notices', the alerts' and the roll call's tests (157 s
-  with the last), 9 passed, the two real-modem tests skipped; the bench's tests run twice on one bench with no restart):
+  mode's, the notices', the alerts', the roll call's and the pictures'
+  tests (165 s in all), 11 passed, the two real-modem tests skipped; the bench's tests run twice on one bench with no restart):
   the packaged-JNI interop test (UTF-8 and emoji broadcast, addressed
   acknowledgements, session text, a session file saved byte for byte
   with its line in the ragchew, Leave, a broadcast file taken with

@@ -2,6 +2,8 @@ package org.ragtime.radio
 
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -86,16 +88,16 @@ internal fun DemoBubble(tip: DemoTip, onSuggestion: (DemoTip) -> Unit, onHide: (
     Surface(color=MaterialTheme.colorScheme.tertiaryContainer,contentColor=MaterialTheme.colorScheme.onTertiaryContainer,shape=bubble,
         modifier=Modifier.fillMaxWidth().padding(horizontal=12.dp,vertical=6.dp).semantics { contentDescription="Demo guide" },
         onClick={ if(tip.suggestion.isNotEmpty())onSuggestion(tip) },enabled=tip.suggestion.isNotEmpty()) {
-        Column(Modifier.padding(start=14.dp,end=6.dp,top=8.dp,bottom=10.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-            Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween) {
-                Text("Try this",style=MaterialTheme.typography.labelMedium,fontWeight=FontWeight.Bold,modifier=Modifier.padding(top=6.dp))
-                TextButton(onClick=onHide,contentPadding=PaddingValues(horizontal=8.dp,vertical=0.dp)) { Text("Hide tips") }
+        // Small: the conversation it is talking about has to fit under it.
+        Row(Modifier.padding(start=14.dp,end=2.dp,top=4.dp,bottom=8.dp),verticalAlignment=Alignment.Top) {
+            Column(Modifier.weight(1f).padding(top=6.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
+                Text(tip.text,style=MaterialTheme.typography.bodySmall)
+                if(tip.suggestion.isNotEmpty()) Surface(color=MaterialTheme.colorScheme.surface,contentColor=MaterialTheme.colorScheme.onSurface,
+                    shape=RoundedCornerShape(10.dp)) {
+                    Text("“${tip.suggestion}”",Modifier.padding(horizontal=10.dp,vertical=5.dp),style=MaterialTheme.typography.bodyMedium,fontWeight=FontWeight.Medium)
+                }
             }
-            Text(tip.text,style=MaterialTheme.typography.bodyMedium,modifier=Modifier.padding(end=8.dp))
-            if(tip.suggestion.isNotEmpty()) Surface(color=MaterialTheme.colorScheme.surface,contentColor=MaterialTheme.colorScheme.onSurface,
-                shape=RoundedCornerShape(12.dp),modifier=Modifier.padding(end=8.dp)) {
-                Text("“${tip.suggestion}”",Modifier.padding(horizontal=12.dp,vertical=8.dp),fontWeight=FontWeight.Medium)
-            }
+            IconButton(onClick=onHide,modifier=Modifier.size(40.dp)) { Icon(Icons.Default.Close,contentDescription="Hide tips",modifier=Modifier.size(18.dp)) }
         }
     }
 }

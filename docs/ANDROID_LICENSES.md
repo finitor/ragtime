@@ -16,6 +16,8 @@ legal advice.
 | Kotlin standard library 2.0.0, kotlinx.coroutines 1.7.3, JetBrains annotations 23.0.0 | `classes.dex`, `kotlin/*.kotlin_builtins` | Apache-2.0 | The same. |
 | Guava `listenablefuture` 1.0 (an empty placeholder AndroidX brings) | `classes.dex` | Apache-2.0 | The same. |
 | LLVM libc++, libc++abi, libunwind and compiler-rt builtins, linked statically from NDK 28.2 | inside `libragtime_jni.so` | Apache-2.0 with LLVM exceptions | Nothing: the exception lifts the notice conditions for runtime code a compiler embeds. Listing it is a courtesy. |
+| OpenJPEG 2.5.3, for JPEG 2000 pictures (since 2026-11-21) | inside `libragtime_jni.so` | BSD-2-Clause, © Université catholique de Louvain and others | Its copyright notices, conditions and disclaimer with the binary: in Open source licences, from `assets/licenses/openjpeg.txt`. |
+| Ragtime's port of Cool-chic, for pictures a desktop sends that way (`image/src/coolchic/`) | inside `libragtime_jni.so` | BSD-3-Clause, © Orange; its fitting code follows SOAP, MIT, © Nikhil Vyas | Both notices with the binary: in Open source licences, read from `image/src/coolchic/` when the APK is built. |
 | Natural Earth coast, border, lake and admin-1 lines | tables in the core (`core/src/globus/`) | Public domain | Nothing. A credit is welcome. |
 | HamText table 0 | a table in the core | Ragtime's own | Built from Ragtime's and Glissando's own chat lines and docs (`tools/ham_table/`). |
 
@@ -27,16 +29,17 @@ library needs only `libm`, `libdl` and `libc` from the system.
 Checked by the library's strings and its build flags
 (`android/app/src/main/cpp/CMakeLists.txt` turns each off): Hamlib
 (LGPL), sotto and Codec 2 (LGPL-2.1), libheif and libde265 (LGPL-3),
-RNNoise, OpenJPEG, libwebp and the Cool-chic port (BSD), wxWidgets, and
-anything of Data2G's (Artistic-2.0 with its interface exception). So the
-APK carries **no copyleft code** and owes nobody source.
+RNNoise and libwebp (BSD), wxWidgets, and anything of Data2G's
+(Artistic-2.0 with its interface exception). So the APK carries **no
+copyleft code** and owes nobody source. Pictures did not change that:
+the phone reads WebP and HEIF with Android's own decoders, so neither
+libwebp nor the LGPL libheif came with them.
 
-Bringing voice or pictures to Android changes that. sotto and Codec 2 are
+Bringing voice to Android changes that. sotto and Codec 2 are
 LGPL-2.1: the user must be able to replace the library, which a signed
 APK makes awkward (ship it as its own `.so`, publish the build recipe and
 offer the object files, or get another licence from Jeff, who owns sotto).
-libheif and libde265 are LGPL-3, with the same duty and more. Decide that
-before the code, not after.
+Decide that before the code, not after.
 
 ## What has to appear in the app
 
@@ -51,6 +54,8 @@ S26 by `AboutTest`).
    - The Apache License 2.0 in full, once, and under it the names it
      covers: AndroidX and Jetpack Compose (The Android Open Source
      Project), Kotlin and kotlinx.coroutines (JetBrains), Guava (Google).
+   - OpenJPEG's notice and the Cool-chic port's (with SOAP's), each in
+     full: BSD and MIT ask for them with every binary.
    - As courtesies: the LLVM runtime libraries (Apache-2.0 with LLVM
      exceptions) and Natural Earth (public domain).
 

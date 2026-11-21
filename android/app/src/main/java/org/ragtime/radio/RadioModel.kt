@@ -1,12 +1,16 @@
 package org.ragtime.radio
 
 import android.app.Application
+import android.graphics.Bitmap
 import android.net.Uri
 import android.os.Handler
 import android.os.Looper
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.ImageBitmap
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.lifecycle.AndroidViewModel
 import org.json.JSONObject
 import java.io.File
@@ -14,11 +18,19 @@ import java.util.concurrent.Executors
 import java.util.concurrent.TimeUnit
 
 internal data class ChatRow(val id: Long, val from: String, val text: String, val to: String, val ours: Boolean, val time: Long, val state: String, val kind: Int,
-    val past: Boolean = false)
+    val past: Boolean = false,
+    // A file's row: its key while the file engines have it, its path once saved, and whether it is an inline picture.
+    val file: String = "", val path: String = "", val picture: Boolean = false) {
+    /** Where an inline picture's bytes are, for RadioModel.wantPicture; empty if this is no picture. */
+    val pictureSource: String get() = if(!picture) "" else if(file.isNotEmpty()) file else if(path.isNotEmpty()) "p:$path" else ""
+}
 internal data class StationRow(val call: String, val where: String, val status: String, val heard: String, val snr: String)
 internal data class TransferRow(val key:String,val via:String,val name:String,val peer:String,val state:String,val path:String,
     val size:Long,val done:Long,val time:Long,val ours:Boolean,val live:Boolean,val checked:Boolean,
-    val receive:Boolean,val decline:Boolean,val cancel:Boolean,val resume:Boolean,val forget:Boolean,val error:String)
+    val receive:Boolean,val decline:Boolean,val cancel:Boolean,val resume:Boolean,val forget:Boolean,val error:String,
+    val picture:Boolean=false) {
+    val pictureSource: String get() = if(!picture) "" else if(live&&(key.startsWith("s:")||key.startsWith("b:"))) key else if(path.isNotEmpty()) "p:$path" else ""
+}
 internal data class RadioSnapshot(
     val connection: String = "Disconnected", val error: String = "", val ready: Boolean = false,
     val ptt: Boolean = false, val busy: Boolean = false, val paused: Boolean = false, val narrow: Boolean = false,
@@ -33,7 +45,8 @@ internal data class RadioSnapshot(
             fun rows(name: String): List<ChatRow> {
                 val array = j.getJSONArray(name)
                 return (0 until array.length()).map { i -> array.getJSONObject(i).let {
-                    ChatRow(it.getLong("id"),it.getString("from"),it.getString("text"),it.optString("to"),it.getBoolean("ours"),it.getLong("time"),it.getString("state"),it.getInt("kind"),it.optBoolean("past"))
+                    ChatRow(it.getLong("id"),it.getString("from"),it.getString("text"),it.optString("to"),it.getBoolean("ours"),it.getLong("time"),it.getString("state"),it.getInt("kind"),it.optBoolean("past"),
+                        it.optString("file"),it.optString("path"),it.optBoolean("picture"))
                 } }
             }
             val stations = j.getJSONArray("stations")
@@ -42,13 +55,15 @@ internal data class RadioSnapshot(
                 files=if(files==null)emptyList() else (0 until files.length()).map { i->files.getJSONObject(i).let {
                     TransferRow(it.getString("key"),it.getString("via"),it.getString("name"),it.getString("peer"),it.getString("state"),it.getString("path"),
                         it.getLong("size"),it.getLong("done"),it.getLong("time"),it.getBoolean("ours"),it.getBoolean("live"),it.getBoolean("checked"),
-                        it.getBoolean("receive"),it.getBoolean("decline"),it.getBoolean("cancel"),it.getBoolean("resume"),it.getBoolean("forget"),it.getString("error"))
+                        it.getBoolean("receive"),it.getBoolean("decline"),it.getBoolean("cancel"),it.getBoolean("resume"),it.getBoolean("forget"),it.getString("error"),
+                        it.optBoolean("picture"))
                 } })
         }
     }
 }
 
 internal class RadioModel(application: Application) : AndroidViewModel(application) {
+    private companion object { const val MAX_PICTURES=24 }
     private val preferences = application.getSharedPreferences("radio", 0)
     var settings by mutableStateOf(HostSettings(preferences.getString("host", "")!!, preferences.getString("call", "")!!, preferences.getString("locator", "")!!, preferences.getInt("kiss",8100),preferences.getInt("command",8300),preferences.getBoolean("demo",false)))
         private set
@@ -136,7 +151,7 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
                 directory=File(files,"stations/"+valid.call.replace('/','_'))
             }
             stationDirectory=directory
-            alertTracker.reset()
+            alertTracker.reset();forgetPictures()
             engine=Engine(valid.call,valid.locator,directory.absolutePath)
             lastJson="";requested=true;failures=0;retryAt=0;error="";status="Connecting";publish()
         } }
@@ -154,7 +169,7 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
     private fun stopDemo() {
         // What the demo's stations said goes with the banner: none of it is
         // left on the screen to be taken for the air.
-        if(link.demo) { runCatching { engine?.close() };engine=null;link=HostSettings();stationDirectory=null;lastJson="" }
+        if(link.demo) { runCatching { engine?.close() };engine=null;link=HostSettings();stationDirectory=null;lastJson="";forgetPictures() }
         runCatching { NativeCore.demoStop() }
         main.post { demoActive=false }
     }
@@ -206,6 +221,118 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
     private fun disconnectTransport() {
         try { transport?.close() } finally { transport=null;engine?.invoke(1) }
     }
+
+    // Inline pictures. A picture's bytes are fetched on the worker, which
+    // owns the engine, and decoded on a thread of their own: a Cool-chic
+    // picture takes seconds, and the link must not wait for it.
+    /** Decoded pictures by source: "s:ID" and "b:ID" while they move, "p:PATH" once saved. */
+    val pictures = mutableStateMapOf<String, ImageBitmap>()
+    private val pictureOrder = ArrayDeque<String>()
+    private val pictureShown = HashMap<String, Long>()
+    private val pictureWanted = HashMap<String, Long>()
+    private val pictureBusy = HashSet<String>()
+    private val pictureThread = Executors.newSingleThreadExecutor { r->Thread(r,"ragtime-pictures") }
+    /** stamp: anything that changes when more of the picture has come, so it is decoded again then. Main thread. */
+    fun wantPicture(source:String,stamp:Long) {
+        if(source.isEmpty())return
+        pictureWanted[source]=stamp
+        if(pictureShown[source]==stamp||source in pictureBusy)return
+        pictureBusy+=source
+        worker.execute {
+            val bytes=runCatching { engine?.pictureBytes(source) }.getOrNull() ?: ByteArray(0)
+            pictureThread.execute {
+                val bitmap=runCatching { Pictures.decode(bytes) }.getOrNull()
+                main.post {
+                    pictureBusy-=source;pictureShown[source]=stamp
+                    if(bitmap!=null) {
+                        if(source !in pictures) { pictureOrder.addLast(source);while(pictureOrder.size>MAX_PICTURES)pictures.remove(pictureOrder.removeFirst()) }
+                        pictures[source]=bitmap.asImageBitmap()
+                    }
+                    // More came while this was decoding: show that too.
+                    val latest=pictureWanted[source]
+                    if(latest!=null&&latest!=stamp)wantPicture(source,latest)
+                }
+            }
+        }
+    }
+    private fun forgetPictures() { main.post { pictures.clear();pictureOrder.clear();pictureShown.clear();pictureWanted.clear() } }
+
+    /** The picture being made ready to send (PictureSheet), or none. */
+    var pictureDraft by mutableStateOf<PictureDraft?>(null)
+        private set
+    private var draftPixels:ByteArray?=null
+    private var draftWidth=0
+    private var draftHeight=0
+    private var draftCoded:ByteArray?=null
+    private var draftSerial=0
+    /** A picture the operator picked: read by Android, shrunk and coded by the engines' own codec. */
+    fun pickPicture(uri:Uri,target:String,station:String) {
+        pictureDraft=PictureDraft(target,station,"picture.j2k")
+        draftPixels=null;draftCoded=null
+        val serial=++draftSerial
+        documents.execute {
+            try {
+                val app=getApplication<Application>()
+                val bitmap=Pictures.read(app,uri)
+                val name=Pictures.sentName(app,uri)
+                val rgba=Pictures.pixels(bitmap)
+                main.post { if(serial==draftSerial)drafted(rgba,bitmap.width,bitmap.height,name) }
+            } catch(e:Throwable) { main.post { if(serial==draftSerial)pictureDraft=pictureDraft?.copy(busy=false,error=e.message ?: "Could not read the picture") } }
+        }
+    }
+    /** A picture already in hand, with no picker. */
+    fun pictureFrom(bitmap:Bitmap,name:String,target:String,station:String) {
+        pictureDraft=PictureDraft(target,station,Pictures.sentName(name))
+        draftSerial++
+        drafted(Pictures.pixels(Pictures.opaque(bitmap)),bitmap.width,bitmap.height,Pictures.sentName(name))
+    }
+    private fun drafted(rgba:ByteArray,width:Int,height:Int,name:String) {
+        draftPixels=rgba;draftWidth=width;draftHeight=height
+        pictureDraft=pictureDraft?.copy(name=name)
+        codeDraft()
+    }
+    fun pictureOptions(side:Int,budget:Int) { pictureDraft=pictureDraft?.copy(side=side,budget=budget);codeDraft() }
+    private fun codeDraft() {
+        val draft=pictureDraft ?: return
+        val rgba=draftPixels ?: return
+        val serial=++draftSerial
+        val width=draftWidth;val height=draftHeight
+        pictureDraft=draft.copy(busy=true,error="")
+        documents.execute {
+            try {
+                val coded=NativeCore.encodePicture(rgba,width,height,draft.side,draft.budget*1024)
+                // Shown as the far end will see it: decoded from the very bytes that go.
+                val preview=Pictures.decode(coded)?.asImageBitmap()
+                main.post { if(serial==draftSerial) {
+                    draftCoded=coded
+                    pictureDraft=pictureDraft?.copy(preview=preview,bytes=coded.size,busy=false,error=if(preview==null)"The picture could not be read back" else "")
+                } }
+            } catch(e:Throwable) { main.post { if(serial==draftSerial)pictureDraft=pictureDraft?.copy(busy=false,error=e.message ?: "The picture could not be coded") } }
+        }
+    }
+    fun sendPicture() {
+        val draft=pictureDraft ?: return
+        val coded=draftCoded ?: return
+        val base=stationDirectory
+        if(base==null||settings.call!=draft.station) { pictureDraft=draft.copy(error="Connect before sending the picture");return }
+        cancelPicture()
+        documentStatus="Queuing ${draft.name}…"
+        documents.execute {
+            val directory=File(base,"outgoing/"+java.util.UUID.randomUUID()).apply { mkdirs() }
+            val file=File(directory,draft.name)
+            try {
+                file.writeBytes(coded)
+                main.post {
+                    action(if(draft.target.isEmpty())"picture-broadcast" else "picture-offer",
+                        if(draft.target.isEmpty())file.absolutePath else "${draft.target}\u0000${file.absolutePath}") { ok->
+                        documentStatus=if(ok)"Queued ${draft.name}" else "The picture was not queued"
+                        if(!ok)directory.deleteRecursively()
+                    }
+                }
+            } catch(e:Exception) { directory.deleteRecursively();main.post { documentStatus=e.message ?: "Could not queue the picture" } }
+        }
+    }
+    fun cancelPicture() { draftSerial++;pictureDraft=null;draftPixels=null;draftCoded=null }
     private fun step() {
         val current=engine ?: return
         if(!requested)return
@@ -245,6 +372,7 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
         worker.execute { try { releaseSession();disconnectTransport() } finally { engine?.close();engine=null;stopDemo() } }
         worker.shutdown()
         documents.shutdown()
+        pictureThread.shutdown()
         super.onCleared()
     }
 }

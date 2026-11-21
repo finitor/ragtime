@@ -41,9 +41,10 @@ internal fun AboutRagtime(onNotice:(Notice)->Unit,onDismiss:()->Unit) {
                     ,"The Demo mode switch starts the demo when turned on and ends it when turned off."
                     ,"Notifications while Ragtime is in the background: a station called you, wrote to you with @, said something in your ragchew, or offers you a file. Tap one to land on it. Settings has the switch."
                     ,"Roll call is on Stations, beside Call station, not in Settings."
+                    ,"Pictures, inline: one a station sends shows among the messages and sharpens as it arrives, up to 64 KB without asking. Send one from the + beside the entry line: any picture Android can read (JPEG, PNG, WebP, HEIF…), shrunk and sent as JPEG 2000. Tap a picture to see it alone."
                     ,"Settings: callsign and locator come first, and a localhost shortcut fills in Data2G running on this phone."
                 )) { note->Text("• $note") }
-                item { Text("Inline picture and voice playback are not included in this build.",style=MaterialTheme.typography.bodySmall) }
+                item { Text("Voice messages are not included in this build: they arrive as files.",style=MaterialTheme.typography.bodySmall) }
             }
         }
     }

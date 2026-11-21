@@ -89,6 +89,15 @@ private fun RadioApp(model: RadioModel) {
     val picker=rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri:Uri?->
         if(uri!=null)model.importFile(uri,pickTarget,pickStation)
     }
+    // Android's photo picker: no permission, and whatever Android can read.
+    val picturePicker=rememberLauncherForActivityResult(ActivityResultContracts.PickVisualMedia()) { uri:Uri?->
+        if(uri!=null)model.pickPicture(uri,pickTarget,pickStation)
+    }
+    fun pickPicture(target:String) {
+        pickTarget=target;pickStation=model.settings.call
+        picturePicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
+    }
+    var attach by remember { mutableStateOf(false) }
     val saver=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri:Uri?->
         if(uri!=null)model.exportFile(exportPath,exportName,uri)
     }
@@ -195,12 +204,18 @@ private fun RadioApp(model: RadioModel) {
                 LaunchedEffect(thread,rows.lastOrNull()?.id) { if(rows.isNotEmpty())listState.scrollToItem(rows.lastIndex) }
                 LazyColumn(Modifier.weight(1f).fillMaxWidth(),state=listState,contentPadding=PaddingValues(16.dp),verticalArrangement=Arrangement.spacedBy(if(view=="Field desk")8.dp else 16.dp)) {
                     if(rows.isEmpty())item { Text(if(thread=="Broadcast")"Broadcast messages will appear here. @CALL addresses a station on the public net." else "Session history appears here when you call a station.",color=MaterialTheme.colorScheme.onSurfaceVariant) }
-                    items(rows,key={it.id}) { row -> MessageRow(row,view=="Field desk") { view="Files";returnTo=null } }
+                    items(rows,key={it.id}) { row -> MessageRow(row,view=="Field desk",model,state.files) { view="Files";returnTo=null } }
                 }
                 val canSend=state.ready && (thread=="Broadcast"||state.phase==2)
                 Row(Modifier.fillMaxWidth().padding(12.dp),verticalAlignment=Alignment.Bottom,horizontalArrangement=Arrangement.spacedBy(8.dp)) {
-                    IconButton(enabled=state.ready&&(thread=="Broadcast"||state.phase==2),
-                        onClick={pickFile(if(thread=="Broadcast")"" else state.peer)}) { Icon(Icons.Default.Add,"Attach a file") }
+                    Box {
+                        IconButton(enabled=state.ready&&(thread=="Broadcast"||state.phase==2),onClick={attach=true}) { Icon(Icons.Default.Add,"Attach a picture or a file") }
+                        DropdownMenu(expanded=attach,onDismissRequest={attach=false}) {
+                            val target=if(thread=="Broadcast")"" else state.peer
+                            DropdownMenuItem(text={Text("Picture")},onClick={attach=false;pickPicture(target)})
+                            DropdownMenuItem(text={Text("File")},onClick={attach=false;pickFile(target)})
+                        }
+                    }
                     OutlinedTextField(value=if(thread=="Broadcast")broadcastDraft else sessionDraft,
                         onValueChange={if(it.toByteArray().size<=2000){if(thread=="Broadcast")broadcastDraft=it else sessionDraft=it}},
                         modifier=Modifier.weight(1f),maxLines=4,label={Text(if(thread=="Broadcast")"To everyone on D2G" else "To ${state.peer.ifEmpty { "station" }}")})
@@ -227,6 +242,7 @@ private fun RadioApp(model: RadioModel) {
         },onAbout={radio=false;about=true},onPrivacy={notice=Notice.Privacy},asked=asked,
             onAskNotifications={ if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) })
     }
+    model.pictureDraft?.let { PictureSheet(model,it) }
     if(about) AboutRagtime(onNotice={notice=it}) { about=false }
     notice?.let { NoticeSheet(it) { notice=null } }
     if(picked!=null) {
@@ -261,7 +277,7 @@ private fun FieldStatus(state: RadioSnapshot) {
 }
 
 @Composable
-private fun MessageRow(row: ChatRow, compact: Boolean, onFile:()->Unit) {
+private fun MessageRow(row: ChatRow, compact: Boolean, model: RadioModel, files: List<TransferRow>, onFile:()->Unit) {
     if(row.kind==2) { HorizontalDivider();return }
     val clock=remember { SimpleDateFormat("HH:mm",Locale.ROOT).apply { timeZone=TimeZone.getTimeZone("UTC") } }
     Surface(color=if(row.ours&&!compact)MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.surface,shape=MaterialTheme.shapes.medium) {
@@ -271,6 +287,9 @@ private fun MessageRow(row: ChatRow, compact: Boolean, onFile:()->Unit) {
                 Text(clock.format(Date(row.time))+" UTC",style=MaterialTheme.typography.labelSmall)
             }
             Text((if(row.to.isNotEmpty())"@${row.to} " else "")+row.text)
+            // An inline picture, under its line: sharper each time more of it has come.
+            if(row.pictureSource.isNotEmpty()) InlinePicture(model,row.pictureSource,
+                files.firstOrNull { it.key==row.file }?.done ?: 1L,"Picture from ${row.from}",maxWidth=if(compact)160 else 280)
             if(row.kind==1)TextButton(onClick=onFile) { Text("View in Files") }
             if(row.state.isNotEmpty())Text(row.state,style=MaterialTheme.typography.labelSmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }

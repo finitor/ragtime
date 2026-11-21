@@ -52,6 +52,19 @@ class NativeInteropTest {
             }
             assertArrayEquals(bytes,File(snapshot(b).files.first { it.name=="note.bin"&&it.state=="Saved" }.path).readBytes())
             assertTrue("The file's line is in the ragchew",snapshot(b).session.any { it.kind==1&&it.text.startsWith("note.bin") })
+            // An inline picture: coded by the engines' codec, taken by B without
+            // asking, and decoded there from the saved file.
+            val pixels=ByteArray(320*240*4) { i->when(i%4) { 0->(i/4%320*255/320).toByte();1->(i/4/320*255/240).toByte();2->120.toByte();else->(-1).toByte() } }
+            val coded=NativeCore.encodePicture(pixels,320,240,320,2000)
+            assertTrue(coded.size<=2000)
+            val picture=File(aDirectory,"outgoing/interop/card.j2k").apply { writeBytes(coded) }
+            assertTrue(a.action("picture-offer","TESTB\u0000${picture.absolutePath}"))
+            until("picture arrived unasked",40000) { snapshot(b).files.any { it.name=="card.j2k"&&it.picture&&it.state=="Saved" } }
+            val line=snapshot(b).session.first { it.picture&&it.path.isNotEmpty() }
+            assertArrayEquals(coded,b.pictureBytes(line.pictureSource))
+            val shown=Pictures.decode(b.pictureBytes(line.pictureSource))!!
+            assertEquals(320 to 240,shown.width to shown.height)
+            assertEquals("Nothing from outside the station's folder",0,b.pictureBytes("p:${picture.absolutePath}").size)
             assertTrue(a.action("leave"))
             until("explicit leave") { !snapshot(a).active&&!snapshot(b).active }
             // A broadcast file: announced, taken with Receive, whole by its digest.
