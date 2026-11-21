@@ -286,6 +286,13 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
             OutlinedTextField(kiss,{kiss=it},Modifier.weight(1f),label={Text("KISS port")},singleLine=true,enabled=!demo,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
             OutlinedTextField(command,{command=it},Modifier.weight(1f),label={Text("Command port")},singleLine=true,enabled=!demo,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
         } }
+        if(error.isNotEmpty())item { Text(error,color=MaterialTheme.colorScheme.error) }
+        // Connect applies the callsign, locator, host and ports above it and
+        // connects to that modem, so it sits right under them.
+        if(!demo)item { Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Button(onClick={try { model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,false));onConnected() }catch(e:IllegalArgumentException){error=e.message?:"Check settings"}}) { Text("Connect") }
+            OutlinedButton(onClick={model.disconnect()},enabled=state.connection!="Disconnected") { Text("Disconnect") }
+        } }
         // The switch is the demo: on starts it, off ends it, and no button
         // repeats either. Not while in a ragchew on the air, which a slip of
         // the thumb would otherwise leave.
@@ -304,12 +311,6 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
                 } catch(e:IllegalArgumentException) { error=e.message?:"Check settings" }
                 else { demo=false;model.demoOff() }
             })
-        } }
-        if(error.isNotEmpty())item { Text(error,color=MaterialTheme.colorScheme.error) }
-        // Connect and Disconnect are for the operator's own modem.
-        if(!demo)item { Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            Button(onClick={try { model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,false));onConnected() }catch(e:IllegalArgumentException){error=e.message?:"Check settings"}}) { Text("Connect") }
-            OutlinedButton(onClick={model.disconnect()},enabled=state.connection!="Disconnected") { Text("Disconnect") }
         } }
         item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
             Text("500 Hz modes only");Switch(checked=state.narrow,onCheckedChange={model.action("narrow",it.toString())},enabled=state.ready)
