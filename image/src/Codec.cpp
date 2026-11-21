@@ -8,7 +8,9 @@
 #include <memory>
 
 #include <openjpeg.h>
+#if RAGTIME_WEBP
 #include <webp/decode.h>
+#endif
 #if RAGTIME_HEIF
 #include <libheif/heif.h>
 #if defined(__linux__)
@@ -393,7 +395,8 @@ bool decodeJ2k(const uint8_t* bytes, size_t length, bool jp2, picture::Image& ou
 //-------------------------------------------------------------------------
 
 // RGBA laid over white, to RGB.
-picture::Image overWhite(const uint8_t* rgba, int width, int height, size_t stride)
+// Unused where neither WebP nor HEIF is read (the Android build).
+[[maybe_unused]] picture::Image overWhite(const uint8_t* rgba, int width, int height, size_t stride)
 {
     picture::Image out = picture::Image::blank(width, height, 3);
     for (int y = 0; y < height; y++)
@@ -423,6 +426,7 @@ bool isHeif(const uint8_t* b, size_t n)
     return false;
 }
 
+#if RAGTIME_WEBP
 Load loadWebp(const uint8_t* bytes, size_t length, picture::Image& out, std::string& error)
 {
     int width = 0, height = 0;
@@ -446,6 +450,7 @@ Load loadWebp(const uint8_t* bytes, size_t length, picture::Image& out, std::str
     WebPFree(rgba);
     return Load::Done;
 }
+#endif
 
 #if RAGTIME_HEIF
 // libheif, once. A Linux build finds its HEVC decoder as a plugin in the
@@ -540,9 +545,12 @@ bool heifAvailable()
 
 std::string versions()
 {
+    std::string text = std::string("OpenJPEG ") + opj_version();
+#if RAGTIME_WEBP
     int w = WebPGetDecoderVersion();
-    std::string text = std::string("OpenJPEG ") + opj_version() + ", libwebp " + std::to_string((w >> 16) & 0xFF) + "."
-                       + std::to_string((w >> 8) & 0xFF) + "." + std::to_string(w & 0xFF);
+    text += ", libwebp " + std::to_string((w >> 16) & 0xFF) + "." + std::to_string((w >> 8) & 0xFF) + "."
+            + std::to_string(w & 0xFF);
+#endif
 #if RAGTIME_HEIF
     text += std::string(", libheif ") + heif_get_version();
 #endif
@@ -565,7 +573,15 @@ Load load(const uint8_t* bytes, size_t length, picture::Image& out, std::string&
         }
         return Load::Done;
     }
-    if (isWebp(bytes, length)) return loadWebp(bytes, length, out, error);
+    if (isWebp(bytes, length))
+    {
+#if RAGTIME_WEBP
+        return loadWebp(bytes, length, out, error);
+#else
+        error = "this Ragtime was built without WebP";
+        return Load::Failed;
+#endif
+    }
     if (isHeif(bytes, length))
     {
 #if RAGTIME_HEIF
