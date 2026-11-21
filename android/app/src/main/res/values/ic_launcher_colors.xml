@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made by tools/icon/make_android_icon.py from app/res/ragtime.svg; edit
+     that script or the SVG's own, not this. -->
+<resources>
+    <color name="ic_launcher_background">#f1e4c8</color>
+</resources>

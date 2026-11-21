@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Made by tools/icon/make_android_icon.py from app/res/ragtime.svg; edit
+     that script or the SVG's own, not this. -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#ffffff" android:pathData="M14.82,1 L15.12,2.71 L16.21,2.54 L15.66,4.05 L16.98,4.19 L15.95,5.76 L17.27,6.24 L15.87,7.56 L14.33,9.29 L14.51,10.04 L15.96,9.2 L17.08,8 L17.8,9.18 L19.4,7.93 L19.49,9.57 L21.26,9.75 L20.41,10.82 L22.69,12.1 L20.7,12.53 L21.14,13.83 L19.45,13.45 L19.09,14.46 L17.19,14 L15.21,14.42 L16.47,15.34 L17.89,15.85 L17.12,16.72 L17.89,18.37 L15.87,17.64 L14.89,18.43 L13.7,17.3 L11.99,17.6 L10.3,17.21 L9.38,17.22 L8.57,16.93 L7.87,16.33 L6.33,15.54 L5.21,14.21 L3.57,14.3 L3.33,13.07 L1.31,12.34 L2.97,11.57 L2.93,10.41 L4.34,10.92 L5.91,11.03 L4.66,9.43 L2.91,8.57 L3.28,7.56 L1.74,6.77 L2.91,6.05 L1.66,4.45 L4.24,4.93 L4.27,3.57 L5.74,4.56 L6.86,3.37 L7.29,5.35 L8.59,4.91 L8.68,6.55 L9.25,8.13 L9.88,7.67 L9.81,5.35 L9.59,3.44 L10.9,3.92 L11.12,2.06 L12.22,2.8 L12.78,1.28 L13.5,2.12 Z"/>
+    <path android:strokeColor="#ffffff" android:strokeWidth="1.2" android:strokeLineCap="round" android:pathData="M9.19,16.81 C8.2,19.2 6.99,21.27 5.44,23"/>
+</vector>
