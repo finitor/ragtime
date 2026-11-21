@@ -1,0 +1,741 @@
+diff --git a/docs/android-network-audio.md b/docs/android-network-audio.md
+new file mode 100644
+index 0000000..03a4f36
+--- /dev/null
++++ b/docs/android-network-audio.md
+@@ -0,0 +1,39 @@
++# Android network-audio pilot
++
++An explicitly selected test transport exchanges continuous, unframed,
++little-endian float32 mono PCM at 8000 Hz over one outbound TCP connection.
++The modem's waveform and host protocols are unchanged. This is a no-radio
++pilot, not a replacement for device audio or RF qualification.
++
++In the Android TNC's Settings, enter a callsign, enable **Network audio
++test (no radio)**, and set the peer host and TCP port. Start on the Modem
++tab, then open Ragtime with host 127.0.0.1, KISS 8100 and command 8300
++(session data 8301). The TNC's foreground service and Qt event loop keep
++running behind Ragtime. Back/Home leave the TNC running; swiping its task
++away still shuts it down. Network audio settings are locked while running.
++
++This mode never opens a rig, microphone or speaker. It uses the Android
++special-use foreground-service type from API 34, with its purpose declared
++in the manifest, and does not request microphone permission. Notification
++permission is requested separately. Ordinary device-audio mode keeps its
++existing permission/service behavior. Saved rig/device choices are not
++replaced by the network mode's runtime overrides.
++
++The desktop host also accepts `--audio-io tcp:HOST:PORT --no-rig`. One
++worker Qt thread owns the socket and a 32 ms playback timer. Partial float
++bytes are retained between reads. RX/TX counters are shown on Android.
++The receive and pending transmit buffers are bounded to about one second.
++Invalid samples, capture loss, queue overflow, connect timeout, ten seconds
++without incoming audio, and disconnect fail explicitly. The owner stops
++the station and closes its client ports; restarting is explicit. No jitter
++correction, clock-drift compensation or automatic reconnect is implemented.
++
++Network test recordings are app-private under `files/network-recordings`.
++The Android build uses the existing `tools/build_android.sh` with matching
++Qt host/Android packages. The pilot used Qt 6.11.1, NDK 27.2.12479018,
++JDK 21, target SDK 36 and ARM64, with `DATA2G_ANDROID_RIG=OFF`.
++
++`native/tests/test_tcp_audio.cpp` checks exact float values and outgoing
++bytes across TCP fragments, counters, peer-disconnect wakeup, and prompt,
++idempotent shutdown. It is included in CTest when `data2g_station` is built.
++The shared core and generated tables are unchanged.
+diff --git a/native/CMakeLists.txt b/native/CMakeLists.txt
+index 04543d2..c8563a0 100644
+--- a/native/CMakeLists.txt
++++ b/native/CMakeLists.txt
+@@ -211,6 +211,7 @@ if(NOT DATA2G_BUILD_HOST STREQUAL "OFF" OR NOT DATA2G_BUILD_GUI STREQUAL "OFF")
+   if(Qt6Network_FOUND)
+     add_library(data2g_station STATIC app/station.cpp app/transmitter.cpp app/options.cpp app/settings.cpp app/web_password.cpp app/tcp_servers.cpp app/rx_plot.cpp
+                                       app/realtime.cpp app/spectrum.cpp)
++    target_sources(data2g_station PRIVATE app/tcp_audio.cpp)
+     target_include_directories(data2g_station PUBLIC ${CMAKE_CURRENT_SOURCE_DIR})
+     target_link_libraries(data2g_station PUBLIC data2g_core data2g_applog Qt6::Core Qt6::Network)
+     target_compile_definitions(data2g_station PUBLIC QT_NO_KEYWORDS)  # the core has members named slots
+diff --git a/native/android-app/CMakeLists.txt b/native/android-app/CMakeLists.txt
+index f50e6cf..bc9db38 100644
+--- a/native/android-app/CMakeLists.txt
++++ b/native/android-app/CMakeLists.txt
+@@ -81,6 +81,7 @@ set_target_properties(data2g_android PROPERTIES
+ foreach(_perm IN ITEMS
+     RECORD_AUDIO
+     FOREGROUND_SERVICE FOREGROUND_SERVICE_MICROPHONE FOREGROUND_SERVICE_MEDIA_PLAYBACK
++    FOREGROUND_SERVICE_SPECIAL_USE
+     POST_NOTIFICATIONS  # API 33+; denied costs the notification, not the modem
+     INTERNET            # the KISS and VARA ports, even on 127.0.0.1
+     # Bluetooth CAT: CONNECT is runtime from API 31; the legacy pair is what 29-30
+diff --git a/native/android-app/Main.qml b/native/android-app/Main.qml
+index 6b49975..3230b07 100644
+--- a/native/android-app/Main.qml
++++ b/native/android-app/Main.qml
+@@ -97,6 +97,15 @@ ApplicationWindow {
+                 visible: text !== ""
+                 font.pixelSize: 16
+             }
++            Label {
++                Layout.fillWidth: true
++                Layout.leftMargin: 12
++                Layout.rightMargin: 12
++                text: tnc.networkStatus
++                visible: text !== ""
++                wrapMode: Text.Wrap
++                font.pixelSize: 12
++            }
+             Label {
+                 Layout.fillWidth: true
+                 Layout.leftMargin: 12
+@@ -188,6 +197,40 @@ ApplicationWindow {
+                 }
+ 
+                 Label { text: "Audio"; font.bold: true; Layout.topMargin: 12 }
++                Switch {
++                    text: "Network audio test (no radio)"
++                    checked: tnc.networkAudio
++                    enabled: !tnc.running
++                    onToggled: tnc.networkAudio = checked
++                }
++                ColumnLayout {
++                    visible: tnc.networkAudio
++                    Layout.fillWidth: true
++                    Label { text: "Audio peer (Tailscale IP or host name)" }
++                    TextField {
++                        Layout.fillWidth: true
++                        text: tnc.networkHost
++                        enabled: !tnc.running
++                        inputMethodHints: Qt.ImhNoPredictiveText
++                        onTextEdited: tnc.networkHost = text
++                    }
++                    Label { text: "Audio TCP port" }
++                    SpinBox {
++                        from: 1; to: 65535
++                        editable: true
++                        value: tnc.networkPort
++                        enabled: !tnc.running
++                        onValueModified: tnc.networkPort = value
++                    }
++                    Label {
++                        Layout.fillWidth: true
++                        wrapMode: Text.Wrap
++                        text: "Raw 8 kHz float32 audio. Start explicitly, then open Ragtime. No microphone, speaker or rig is used."
++                    }
++                }
++                ColumnLayout {
++                visible: !tnc.networkAudio
++                Layout.fillWidth: true
+                 Label { text: "Input (from the radio)" }
+                 ComboBox {
+                     Layout.fillWidth: true
+@@ -223,6 +266,7 @@ ApplicationWindow {
+                           + "without ALC action. The receive level is good anywhere in the green."
+                 }
+ 
++                }
+                 Label { text: "Broadcast"; font.bold: true; Layout.topMargin: 12 }
+                 Label { text: "Broadcast mode" }
+                 ComboBox {
+@@ -245,6 +289,7 @@ ApplicationWindow {
+ 
+                 Label { text: "Rig control"; font.bold: true; Layout.topMargin: 12 }
+                 RigPane {
++                    enabled: !tnc.networkAudio
+                     Layout.fillWidth: true
+                     rig: rigSettings
+                 }
+diff --git a/native/android-app/android/AndroidManifest.xml b/native/android-app/android/AndroidManifest.xml
+index 6b94cfe..2d2b7bd 100644
+--- a/native/android-app/android/AndroidManifest.xml
++++ b/native/android-app/android/AndroidManifest.xml
+@@ -61,7 +61,10 @@
+             android:name="org.cleverdomain.data2g.TncService"
+             android:exported="false"
+             android:stopWithTask="false"
+-            android:foregroundServiceType="microphone|mediaPlayback" />
++            android:foregroundServiceType="microphone|mediaPlayback|specialUse">
++            <property android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
++                android:value="User-started modem test: continuous PCM over TCP with local KISS and session clients; no device audio" />
++        </service>
+ 
+         <!-- Collects a lasting USB permission and disappears (UsbAttach.java). -->
+         <activity
+diff --git a/native/android-app/android/src/org/cleverdomain/data2g/TncService.java b/native/android-app/android/src/org/cleverdomain/data2g/TncService.java
+index fb99a59..7ff504d 100644
+--- a/native/android-app/android/src/org/cleverdomain/data2g/TncService.java
++++ b/native/android-app/android/src/org/cleverdomain/data2g/TncService.java
+@@ -14,6 +14,7 @@ import android.graphics.drawable.Icon;
+ import android.os.Handler;
+ import android.os.IBinder;
+ import android.os.Looper;
++import android.os.Build;
+ 
+ /**
+  * Keeps the modem alive independently of any screen (SSTVAE's ListenerService).
+@@ -33,6 +34,7 @@ public class TncService extends Service {
+     private static final long REFRESH_MS = 1000;
+ 
+     private static native void nativeStart();
++    private static native boolean nativeNetworkAudio();
+     private static native void nativeStop();
+     private static native void nativeStopNow();
+     /** 0 stopped, 1 starting, 2 running. */
+@@ -126,6 +128,9 @@ public class TncService extends Service {
+      * modem's own start will then say what is missing.
+      */
+     private int serviceTypes() {
++        if (nativeNetworkAudio()) {
++            return Build.VERSION.SDK_INT >= 34 ? ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE : 0;
++        }
+         int types = ServiceInfo.FOREGROUND_SERVICE_TYPE_MEDIA_PLAYBACK;
+         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+             types |= ServiceInfo.FOREGROUND_SERVICE_TYPE_MICROPHONE;
+diff --git a/native/android-app/modem.cpp b/native/android-app/modem.cpp
+index a88d608..2388b5f 100644
+--- a/native/android-app/modem.cpp
++++ b/native/android-app/modem.cpp
+@@ -3,6 +3,7 @@
+ #include <QCoreApplication>
+ #include <QDateTime>
+ #include <QSettings>
++#include <QStandardPaths>
+ #include <QtGlobal>
+ 
+ #include <algorithm>
+@@ -67,6 +68,8 @@ app::Args load_args() {
+     return app::load_settings(s, base);
+ }
+ 
++bool network_audio_selected() { return QSettings().value("android/network_audio", false).toBool(); }
++
+ std::string rig_connection() {
+     return QSettings().value(QLatin1String(RIG_CONNECTION_KEY), QStringLiteral("usb")).toString().toStdString();
+ }
+@@ -135,7 +138,20 @@ void Modem::start() {
+         std::lock_guard lock(mu_);
+         error_.clear();
+     }
+-    const app::Args a = load_args();
++    app::Args a = load_args();
++    if (network_audio_selected()) {
++        QSettings settings;
++        const auto host = settings.value("android/network_host").toString().trimmed();
++        const int port = settings.value("android/network_port", 9977).toInt();
++        if (host.isEmpty() || host.contains(' ') || host.contains(':') || port < 1 || port > 65535)
++            return fail("set a network audio host and port first");
++        a.audio_io = "tcp:" + host.toStdString() + ":" + std::to_string(port);
++        a.rig = false;
++        a.tci = false;
++        a.live_constellation = false;
++        a.record = true;
++        a.record_dir = (QStandardPaths::writableLocation(QStandardPaths::AppDataLocation) + "/network-recordings").toStdString();
++    }
+     if (!a.mycall) return fail("set your callsign in Settings first");
+     if (const auto bad = app::check(a)) return fail(*bad);
+     // Hamlib's dummy accepts a PTT command and keys nothing.
+diff --git a/native/android-app/modem.hpp b/native/android-app/modem.hpp
+index 7b184a2..25bd5cb 100644
+--- a/native/android-app/modem.hpp
++++ b/native/android-app/modem.hpp
+@@ -33,6 +33,7 @@ enum class State { Stopped, Starting, Running };
+ // The saved settings (app/settings.hpp) over the app's defaults: no rig, no
+ // real-time request (the Java audio threads ask Android for their priority).
+ app::Args load_args();
++bool network_audio_selected();
+ // How the rig is reached: "usb", "bluetooth" or "network" (Hamlib dials
+ // rig_device itself). Picked in Settings, not guessed from the device string.
+ inline constexpr const char* RIG_CONNECTION_KEY = "android/rig_connection";
+diff --git a/native/android-app/service_jni.cpp b/native/android-app/service_jni.cpp
+index d39b498..a830cec 100644
+--- a/native/android-app/service_jni.cpp
++++ b/native/android-app/service_jni.cpp
+@@ -12,6 +12,10 @@ using data2g::androidapp::State;
+ 
+ extern "C" {
+ 
++JNIEXPORT jboolean JNICALL Java_org_cleverdomain_data2g_TncService_nativeNetworkAudio(JNIEnv*, jclass) {
++    return data2g::androidapp::network_audio_selected();
++}
++
+ JNIEXPORT void JNICALL Java_org_cleverdomain_data2g_TncService_nativeStart(JNIEnv*, jclass) { Modem::instance().post_start(); }
+ 
+ JNIEXPORT void JNICALL Java_org_cleverdomain_data2g_TncService_nativeStop(JNIEnv*, jclass) { Modem::instance().post_stop(); }
+diff --git a/native/android-app/tnc.cpp b/native/android-app/tnc.cpp
+index aab4e4b..a0ad588 100644
+--- a/native/android-app/tnc.cpp
++++ b/native/android-app/tnc.cpp
+@@ -83,6 +83,28 @@ Tnc::Tnc(QObject* parent) : QObject(parent) {
+ bool Tnc::running() const { return Modem::instance().state() != State::Stopped; }
+ bool Tnc::starting() const { return Modem::instance().state() == State::Starting; }
+ QString Tnc::status() const { return qs(Modem::instance().status_line()); }
++bool Tnc::networkAudio() const { return data2g::androidapp::network_audio_selected(); }
++void Tnc::setNetworkAudio(bool on) {
++    if (running()) return;
++    QSettings().setValue("android/network_audio", on);
++    Q_EMIT settingsChanged();
++}
++QString Tnc::networkHost() const { return QSettings().value("android/network_host").toString(); }
++void Tnc::setNetworkHost(const QString& host) {
++    if (running()) return;
++    QSettings().setValue("android/network_host", host.trimmed());
++    Q_EMIT settingsChanged();
++}
++int Tnc::networkPort() const { return QSettings().value("android/network_port", 9977).toInt(); }
++void Tnc::setNetworkPort(int port) {
++    if (running()) return;
++    QSettings().setValue("android/network_port", port);
++    Q_EMIT settingsChanged();
++}
++QString Tnc::networkStatus() const {
++    auto* s = Modem::instance().station();
++    return s ? qs(s->test_audio_status()) : QString();
++}
+ bool Tnc::ptt() const {
+     auto* s = Modem::instance().station();
+     return s && s->ptt();
+@@ -193,6 +215,10 @@ void Tnc::clearLog() {
+ // --- start and stop
+ 
+ void Tnc::start() {
++    if (networkAudio()) {
++        start_service();
++        return;
++    }
+     const QMicrophonePermission mic;
+     switch (qApp->checkPermission(mic)) {
+         case Qt::PermissionStatus::Granted:
+diff --git a/native/android-app/tnc.hpp b/native/android-app/tnc.hpp
+index 8f7bae5..9f00353 100644
+--- a/native/android-app/tnc.hpp
++++ b/native/android-app/tnc.hpp
+@@ -29,6 +29,10 @@ class Tnc : public QObject {
+     Q_PROPERTY(QString counters READ counters NOTIFY changed)    // audio trouble; empty when there is none
+ 
+     Q_PROPERTY(QString callsign READ callsign WRITE setCallsign NOTIFY settingsChanged)
++    Q_PROPERTY(bool networkAudio READ networkAudio WRITE setNetworkAudio NOTIFY settingsChanged)
++    Q_PROPERTY(QString networkHost READ networkHost WRITE setNetworkHost NOTIFY settingsChanged)
++    Q_PROPERTY(int networkPort READ networkPort WRITE setNetworkPort NOTIFY settingsChanged)
++    Q_PROPERTY(QString networkStatus READ networkStatus NOTIFY changed)
+     Q_PROPERTY(QStringList inputDevices READ inputDevices NOTIFY devicesChanged)
+     Q_PROPERTY(QStringList outputDevices READ outputDevices NOTIFY devicesChanged)
+     // A name from the lists above; SYSTEM_DEFAULT for the platform's choice.
+@@ -59,6 +63,13 @@ public:
+     QString counters() const;
+ 
+     QString callsign() const;
++    bool networkAudio() const;
++    void setNetworkAudio(bool on);
++    QString networkHost() const;
++    void setNetworkHost(const QString& host);
++    int networkPort() const;
++    void setNetworkPort(int port);
++    QString networkStatus() const;
+     void setCallsign(const QString& c);
+     QStringList inputDevices() const { return inputs_; }
+     QStringList outputDevices() const { return outputs_; }
+diff --git a/native/app/options.cpp b/native/app/options.cpp
+index 884f671..4017f14 100644
+--- a/native/app/options.cpp
++++ b/native/app/options.cpp
+@@ -103,6 +103,8 @@ const char* HELP =
+     "  --audio-io pipe:IN,OUT  no sound card: raw float32 8 kHz mono read from IN and written to OUT (files\n"
+     "                        or named pipes), both at real time, silence while not keyed. Two hosts cross-\n"
+     "                        connect through two mkfifo pipes. --sample-rate and the devices are then unused.\n"
++    "  --audio-io tcp:HOST:PORT  no-radio test audio, raw little-endian float32 8 kHz mono over TCP.\n"
++    "                        Requires --no-rig. Disconnects, overflow and stalled audio fail explicitly.\n"
+     "  --tci, --no-tci       the radio over TCI (ExpertSDR, Thetis, AetherSDR...): audio, PTT and the dial,\n"
+     "                        in place of the sound card and Hamlib. --sample-rate 8000, 24000 or 48000;\n"
+     "                        --rig-mode usb or pkt_usb sets USB or DIGU on connect (default: off)\n"
+@@ -443,6 +445,10 @@ std::optional<std::string> check(const Args& a) {
+     if (a.rig_poll_interval < 0) return "--rig-poll-interval: must be 0 (key only) or more";
+     if (!(a.noise_rule >= 0)) return "--noise-rule: must be 0 (off) or more";
+     if (!(a.dd_budget >= 0)) return "--dd-budget: must be 0 (no DD) or more";
++    if (a.audio_io.starts_with("tcp:")) {
++        if (!tci_address(a.audio_io.substr(4))) return "--audio-io tcp:HOST:PORT: invalid endpoint";
++        if (a.rig) return "TCP test audio requires --no-rig";
++    }
+     if (a.decoder_effort < 1) return "--decoder-effort: must be 1 or more";
+     if (!tci_address(a.tci_host)) return "--tci-host " + a.tci_host + ": want HOST or HOST:PORT";
+     if (a.tci) {
+diff --git a/native/app/options.hpp b/native/app/options.hpp
+index 55325ea..938af8a 100644
+--- a/native/app/options.hpp
++++ b/native/app/options.hpp
+@@ -60,7 +60,7 @@ struct Args {
+     int rx_stall_ms = 0;   // testing: the receive loop sleeps this long after every block (a busy machine)
+     bool realtime = true;  // real-time scheduling for the audio and transmit threads, where available
+     bool live_constellation = true;  // fill the constellation plot in as a burst arrives, once a front end polls it
+-    std::string audio_io;  // "pipe:IN,OUT"; empty: the sound card
++    std::string audio_io;  // "pipe:IN,OUT" or "tcp:HOST:PORT" test audio; empty: sound card
+     bool tci = false;      // the radio's audio, PTT and dial over TCI (tci_host), in place of the sound card and Hamlib
+     std::string tci_host = "localhost:50001";
+ 
+diff --git a/native/app/station.cpp b/native/app/station.cpp
+index 128ad9a..f5af24e 100644
+--- a/native/app/station.cpp
++++ b/native/app/station.cpp
+@@ -19,6 +19,7 @@
+ #include "app/realtime.hpp"
+ #include "app/settings.hpp"
+ #include "app/tcp_servers.hpp"
++#include "app/tcp_audio.hpp"
+ #include "app/transmitter.hpp"
+ #include "audio/audio.hpp"
+ #include "audio/fifo.hpp"
+@@ -458,6 +459,15 @@ std::optional<double> Station::rig_frequency() const {
+     return rig_ ? rig_->frequency_hz() : std::nullopt;
+ }
+ 
++bool Station::failed() const { return failed_ || (tcp_audio_ && tcp_audio_->failed()); }
++
++std::string Station::test_audio_status() const {
++    if (!tcp_audio_) return {};
++    const auto s = tcp_audio_->stats();
++    return std::string(s.connected ? "TCP audio connected" : "TCP audio connecting") +
++           " · RX " + std::to_string(s.received) + " bytes · TX " + std::to_string(s.sent) + " bytes";
++}
++
+ void Station::start() {
+     if (running_) return;
+     try {
+@@ -642,6 +652,13 @@ void Station::start() {
+ #else
+             throw UsageError("--tci: built without TCI (Qt WebSockets)");
+ #endif
++        } else if (a_.audio_io.starts_with("tcp:")) {
++            const auto address = tci_address(a_.audio_io.substr(4));
++            if (!address) throw UsageError("--audio-io tcp:HOST:PORT: invalid endpoint");
++            play_ = std::make_unique<audio::PlaybackFifo>(config::FS, lead_s);
++            tcp_audio_ = std::make_unique<TcpAudio>(address->first, address->second, *cap_, *play_, report);
++            logf(INFO, "test audio: TCP %s:%d (little-endian float32 mono, %d Hz)",
++                 address->first.c_str(), address->second, config::FS);
+         } else if (!a_.audio_io.empty()) {
+             const auto comma = a_.audio_io.find(',');
+             if (!a_.audio_io.starts_with("pipe:") || comma == std::string::npos) throw UsageError("--audio-io: want pipe:IN,OUT");
+@@ -711,6 +728,7 @@ void Station::stop() {
+     }
+     if (kiss_) kiss_->close_clients();
+     if (pipe_) pipe_->stop();
++    if (tcp_audio_) tcp_audio_->stop();
+     tci_.reset();
+ #ifdef DATA2G_HAVE_AUDIO
+     if (card_) {
+@@ -724,6 +742,7 @@ void Station::stop() {
+     kiss_.reset();
+     card_.reset();
+     pipe_.reset();
++    tcp_audio_.reset();
+     rig_.reset();
+     host_.reset();
+     engine_.reset();
+diff --git a/native/app/station.hpp b/native/app/station.hpp
+index 63fddf6..66f7b7e 100644
+--- a/native/app/station.hpp
++++ b/native/app/station.hpp
+@@ -87,6 +87,7 @@ class Port;
+ class KissServer;
+ class Transmitter;
+ class Tci;
++class TcpAudio;
+ 
+ // Bad options found only at start() (argparse would have exited with 2).
+ struct UsageError : std::runtime_error {
+@@ -138,7 +139,8 @@ public:
+     void stop();
+     bool running() const { return running_; }
+     // The engine thread died (logged CRITICAL); stop() and report it.
+-    bool failed() const { return failed_; }
++    bool failed() const;
++    std::string test_audio_status() const;
+     const Args& args() const { return a_; }
+ 
+     // -- polled by the owner, never blocking on the engine
+@@ -208,6 +210,7 @@ private:
+     std::unique_ptr<audio::PipeIo> pipe_;
+     std::unique_ptr<SoundCard> card_;
+     std::unique_ptr<Tci> tci_;  // --tci: the radio's audio, PTT and dial, in place of card_ and rig_
++    std::unique_ptr<TcpAudio> tcp_audio_;  // explicitly selected no-radio TCP test audio
+     std::unique_ptr<rig::RigController> rig_;
+     std::unique_ptr<MonitorThread> monitor_;  // made in start(), before the engine runs
+     std::atomic<bool> monitor_on_{false};
+diff --git a/native/app/tcp_audio.cpp b/native/app/tcp_audio.cpp
+new file mode 100644
+index 0000000..3ff76e7
+--- /dev/null
++++ b/native/app/tcp_audio.cpp
+@@ -0,0 +1,130 @@
++#include "app/tcp_audio.hpp"
++
++#include <QByteArray>
++#include <QElapsedTimer>
++#include <QMetaObject>
++#include <QTcpSocket>
++#include <QTimer>
++#include <QtEndian>
++
++#include <bit>
++#include <cmath>
++#include <utility>
++#include <vector>
++
++#include "audio/fifo.hpp"
++
++namespace data2g::app {
++
++class TcpAudio::Worker : public QObject {
++public:
++    Worker(std::string host, int port, audio::CaptureFifo& cap, audio::PlaybackFifo& play,
++           Report report, std::shared_ptr<Shared> state)
++        : host_(std::move(host)), port_(port), cap_(cap), play_(play),
++          report_(std::move(report)), state_(std::move(state)) {}
++
++    void start() {
++        socket_ = new QTcpSocket(this);
++        socket_->setReadBufferSize(LIMIT);
++        timer_ = new QTimer(this);
++        timer_->setTimerType(Qt::PreciseTimer);
++        deadline_ = new QTimer(this);
++        deadline_->setSingleShot(true);
++        connect(deadline_, &QTimer::timeout, this, [this] { fail("connect timed out"); });
++        connect(socket_, &QTcpSocket::connected, this, [this] {
++            socket_->setSocketOption(QAbstractSocket::LowDelayOption, 1);
++            deadline_->stop();
++            state_->connected = true;
++            last_rx_.start();
++            timer_->start(32);  // 256 samples at 8 kHz, including continuous silence
++        });
++        connect(socket_, &QTcpSocket::readyRead, this, [this] { receive(); });
++        connect(socket_, &QTcpSocket::disconnected, this, [this] { fail("peer disconnected"); });
++        connect(socket_, &QTcpSocket::errorOccurred, this, [this](auto) { fail(socket_->errorString().toStdString()); });
++        connect(socket_, &QTcpSocket::bytesWritten, this, [this](qint64 n) { state_->sent += n; });
++        connect(timer_, &QTimer::timeout, this, [this] { transmit(); });
++        deadline_->start(15000);
++        socket_->connectToHost(QString::fromStdString(host_), port_);
++    }
++
++    void stop() {
++        stopping_ = true;
++        state_->connected = false;
++        if (timer_) timer_->stop();
++        if (deadline_) deadline_->stop();
++        if (socket_) socket_->abort();
++    }
++
++private:
++    void fail(const std::string& why) {
++        if (stopping_ || state_->failed.exchange(true)) return;
++        stop();
++        cap_.close();
++        if (report_) report_("TCP test audio: " + why);
++    }
++    void receive() {
++        if (stopping_) return;
++        const QByteArray bytes = socket_->readAll();
++        if (!bytes.isEmpty()) last_rx_.restart();
++        state_->received += bytes.size();
++        pending_.append(bytes);
++        if (pending_.size() > LIMIT + 3) return fail("receive queue exceeded one second");
++        const qsizetype count = pending_.size() / 4;
++        std::vector<double> samples;
++        samples.reserve(count);
++        for (qsizetype i = 0; i < count; ++i) {
++            const float sample = std::bit_cast<float>(qFromLittleEndian<quint32>(pending_.constData() + i * 4));
++            if (!std::isfinite(sample)) return fail("non-finite float32 sample; check peer audio format");
++            samples.push_back(sample);
++        }
++        pending_.remove(0, count * 4);  // preserve fragmented float bytes
++        cap_.write(samples);
++        if (cap_.dropped()) fail("capture FIFO overflowed; samples lost");
++    }
++    void transmit() {
++        if (stopping_) return;
++        if (last_rx_.elapsed() > 10000) return fail("no incoming audio for ten seconds");
++        if (socket_->bytesToWrite() + 1024 > LIMIT) return fail("send queue exceeded one second");
++        std::vector<float> samples(256);
++        play_.pull(samples);
++        QByteArray bytes(1024, '\0');
++        for (int i = 0; i < 256; ++i)
++            qToLittleEndian<quint32>(std::bit_cast<quint32>(samples[i]), bytes.data() + i * 4);
++        if (socket_->write(bytes) != bytes.size()) fail("socket rejected audio bytes");
++    }
++    static constexpr qsizetype LIMIT = 32768;
++    std::string host_;
++    int port_;
++    audio::CaptureFifo& cap_;
++    audio::PlaybackFifo& play_;
++    Report report_;
++    std::shared_ptr<Shared> state_;
++    QTcpSocket* socket_ = nullptr;
++    QTimer *timer_ = nullptr, *deadline_ = nullptr;
++    QElapsedTimer last_rx_;
++    QByteArray pending_;
++    bool stopping_ = false;
++};
++
++TcpAudio::TcpAudio(std::string host, int port, audio::CaptureFifo& cap, audio::PlaybackFifo& play, Report report)
++    : state_(std::make_shared<Shared>()),
++      worker_(new Worker(std::move(host), port, cap, play, std::move(report), state_)) {
++    play.set_output_latency(0.032);
++    worker_->moveToThread(&thread_);
++    QObject::connect(&thread_, &QThread::started, worker_, [w = worker_] { w->start(); });
++    QObject::connect(&thread_, &QThread::finished, worker_, &QObject::deleteLater);
++    thread_.setObjectName(QStringLiteral("d2g-tcp-audio"));
++    thread_.start();
++}
++TcpAudio::~TcpAudio() { stop(); }
++void TcpAudio::stop() {
++    if (!worker_) return;
++    QMetaObject::invokeMethod(worker_, [w = worker_] { w->stop(); }, Qt::BlockingQueuedConnection);
++    thread_.quit();
++    thread_.wait();
++    worker_ = nullptr;
++}
++bool TcpAudio::failed() const { return state_->failed; }
++TcpAudio::Stats TcpAudio::stats() const { return {state_->connected, state_->received, state_->sent}; }
++
++}  // namespace data2g::app
+diff --git a/native/app/tcp_audio.hpp b/native/app/tcp_audio.hpp
+new file mode 100644
+index 0000000..ffe7734
+--- /dev/null
++++ b/native/app/tcp_audio.hpp
+@@ -0,0 +1,35 @@
++// Explicit no-radio test audio: raw little-endian float32 mono at 8 kHz,
++// over one outbound TCP connection. No framing or sample conversion.
++#pragma once
++
++#include <QThread>
++#include <atomic>
++#include <cstdint>
++#include <functional>
++#include <memory>
++#include <string>
++
++namespace data2g::audio { class CaptureFifo; class PlaybackFifo; }
++namespace data2g::app {
++
++class TcpAudio {
++public:
++    struct Stats { bool connected; std::uint64_t received, sent; };
++    using Report = std::function<void(const std::string&)>;
++    TcpAudio(std::string host, int port, audio::CaptureFifo&, audio::PlaybackFifo&, Report);
++    ~TcpAudio();
++    void stop();
++    bool failed() const;
++    Stats stats() const;
++
++private:
++    struct Shared {
++        std::atomic<bool> failed{false}, connected{false};
++        std::atomic<std::uint64_t> received{0}, sent{0};
++    };
++    class Worker;
++    std::shared_ptr<Shared> state_;
++    QThread thread_;
++    Worker* worker_;
++};
++}  // namespace data2g::app
+diff --git a/native/tests/CMakeLists.txt b/native/tests/CMakeLists.txt
+index 88e59c7..742c8fc 100644
+--- a/native/tests/CMakeLists.txt
++++ b/native/tests/CMakeLists.txt
+@@ -7,7 +7,7 @@ endfunction()
+ 
+ file(GLOB DATA2G_TESTS CONFIGURE_DEPENDS test_*.cpp)
+ # Needs a device backend library; added below when it is built.
+-list(FILTER DATA2G_TESTS EXCLUDE REGEX "/test_(rig_hamlib|args|realtime|station_tx|rx_plot|tci)\\.cpp$")
++list(FILTER DATA2G_TESTS EXCLUDE REGEX "/test_(rig_hamlib|args|realtime|station_tx|rx_plot|tci|tcp_audio)\\.cpp$")
+ if(WIN32)  # the rig bridge is POSIX only (core/rig/bridge.cpp)
+   list(FILTER DATA2G_TESTS EXCLUDE REGEX "/test_rig_bridged?\\.cpp$")
+ endif()
+@@ -38,6 +38,9 @@ endif()
+ 
+ # data2g-host's rig options (app/options.*).
+ if(TARGET data2g_station)
++  data2g_test(tcp_audio)
++  target_link_libraries(test_tcp_audio PRIVATE data2g_station)
++  set_tests_properties(tcp_audio PROPERTIES TIMEOUT 30)
+   data2g_test(args)
+   target_link_libraries(test_args PRIVATE data2g_station)
+   data2g_rig_rpath(test_args)
+diff --git a/native/tests/test_tcp_audio.cpp b/native/tests/test_tcp_audio.cpp
+new file mode 100644
+index 0000000..24820f6
+--- /dev/null
++++ b/native/tests/test_tcp_audio.cpp
+@@ -0,0 +1,75 @@
++// Raw network audio preserves float bytes across TCP fragments; peer loss
++// wakes capture and fails explicitly, and stopping joins the worker promptly.
++#include <QCoreApplication>
++#include <QElapsedTimer>
++#include <QHostAddress>
++#include <QTcpServer>
++#include <QTcpSocket>
++#include <QThread>
++#include <QtEndian>
++#include <atomic>
++#include <bit>
++#include <functional>
++#include <vector>
++
++#include "app/tcp_audio.hpp"
++#include "audio/fifo.hpp"
++#include "check.hpp"
++
++using namespace data2g;
++
++bool until(const std::function<bool()>& condition, int ms = 4000) {
++    QElapsedTimer timer;
++    timer.start();
++    while (!condition() && timer.elapsed() < ms) {
++        QCoreApplication::processEvents();
++        QThread::msleep(2);
++    }
++    return condition();
++}
++
++int main(int argc, char** argv) {
++    QCoreApplication app(argc, argv);
++    QTcpServer server;
++    check::is_true(server.listen(QHostAddress::LocalHost, 0), "listen");
++    audio::CaptureFifo capture(8000);
++    audio::PlaybackFifo playback(8000, 0);
++    std::vector<double> samples;
++    QByteArray bytes;
++    for (int i = 0; i < 512; ++i) {
++        const float v = (i - 256) / 1024.0f;
++        samples.push_back(v);
++        char encoded[4];
++        qToLittleEndian<quint32>(std::bit_cast<quint32>(v), encoded);
++        bytes.append(encoded, 4);
++    }
++    playback.write(samples);
++    std::atomic<bool> reported{false};
++    app::TcpAudio audio("127.0.0.1", server.serverPort(), capture, playback,
++                        [&](const auto&) { reported = true; });
++    if (!until([&] { return server.hasPendingConnections(); })) return 1;
++    auto* peer = server.nextPendingConnection();
++    QByteArray received;
++    QObject::connect(peer, &QTcpSocket::readyRead, [&] { received += peer->readAll(); });
++    for (qsizetype i = 0; i < bytes.size(); i += 37) {
++        peer->write(bytes.mid(i, 37));
++        peer->flush();
++        QCoreApplication::processEvents();
++    }
++    check::is_true(until([&] { return capture.backlog() >= samples.size() && received.size() >= bytes.size(); }), "both directions move");
++    if (capture.backlog() >= samples.size()) {
++        const auto got = capture.read(samples.size());
++        check::is_true(got && *got == samples, "fragmented float samples exact");
++    }
++    check::is_true(received.first(bytes.size()) == bytes, "transmit float bytes exact");
++    check::equal(audio.stats().received, static_cast<std::uint64_t>(bytes.size()), "receive counter");
++    peer->disconnectFromHost();
++    check::is_true(until([&] { return audio.failed() && reported; }), "remote disconnect fails");
++    check::is_true(!capture.read(1), "disconnect wakes capture with EOF");
++    QElapsedTimer stopping;
++    stopping.start();
++    audio.stop();
++    audio.stop();
++    check::is_true(stopping.elapsed() < 1000, "stop is prompt and idempotent");
++    return check::failures ? 1 : 0;
++}
