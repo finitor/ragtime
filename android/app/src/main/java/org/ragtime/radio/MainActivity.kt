@@ -155,7 +155,12 @@ private fun RadioApp(model: RadioModel) {
                     }
                     item { Row(Modifier.fillMaxWidth(),horizontalArrangement=Arrangement.SpaceBetween,verticalAlignment=Alignment.CenterVertically) {
                         Text("On the net",style=MaterialTheme.typography.titleMedium)
-                        TextButton(onClick={manualCall=true},enabled=state.ready&&state.dataUp&&!state.active) { Text("Call station") }
+                        // A roll call asks every station to check in: it fills this list,
+                        // so it is asked for here. Its row and the answers show in Broadcast.
+                        Row {
+                            TextButton(onClick={model.action("checkin")},enabled=state.ready) { Text("Roll call") }
+                            TextButton(onClick={manualCall=true},enabled=state.ready&&state.dataUp&&!state.active) { Text("Call station") }
+                        }
                     } }
                     // Not connected, the tip is also the way to Settings.
                     if(state.stations.isEmpty())item {
@@ -345,7 +350,6 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
         item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
             Text("Pause sending");Switch(checked=state.paused,onCheckedChange={model.action("pause",it.toString())},enabled=state.ready)
         } }
-        item { OutlinedButton(onClick={model.action("checkin")},enabled=state.ready) { Text("Request roll call") } }
         // Last, above the note: it is for trying Ragtime out, not for every day.
         // The switch is the demo: on starts it, off ends it, and no button
         // repeats either. Not while in a ragchew on the air, which a slip of
