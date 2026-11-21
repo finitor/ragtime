@@ -23,17 +23,18 @@ class GearTest {
             app.waitUntil(20000) { model.demoActive&&model.snapshot.ready&&gear().ladder.size>=3 }
             assertTrue(gear().hostThresholds)
             assertTrue("Auto until the operator says otherwise",gear().auto)
-            assertTrue(gear().label.startsWith("Gear"))
 
             // Field desk keeps the gear in sight; a tap opens the gearshift.
             app.onNode(hasText("Field desk") and isSelectable()).performClick()
             app.onNodeWithTag("gear-button").assertExists().performClick()
-            app.onNodeWithText("Gearshift").assertExists()
+            // (The button says Gearshift too, while Auto waits to hear a station.)
+            app.onNodeWithTag("gear-list").assertExists()
             app.onNodeWithTag("gear-auto").assertIsOn()
 
             // Once a station has been heard, Auto goes by it and says so.
             app.waitUntil(40000) { gear().snr.isNotEmpty() }
             assertTrue(gear().snrFrom.isNotEmpty())
+            assertTrue(!gear().waiting&&gear().label.startsWith("Gear"))
             app.onNodeWithText("Going by ${gear().snrFrom}",substring=true).assertExists()
 
             // A gear tapped is the gear, by hand.
@@ -55,7 +56,7 @@ class GearTest {
             app.onNodeWithTag("gear-auto").performClick()
             app.waitUntil(5000) { gear().auto }
             androidx.test.espresso.Espresso.pressBack()
-            app.waitUntil(5000) { app.onAllNodesWithText("Gearshift").fetchSemanticsNodes().isEmpty() }
+            app.waitUntil(5000) { app.onAllNodesWithTag("gear-list").fetchSemanticsNodes().isEmpty() }
             app.onNodeWithTag("gear-button").assertExists()
 
             // A picture for D2G says what it costs in airtime in that gear.

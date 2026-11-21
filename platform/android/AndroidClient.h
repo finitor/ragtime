@@ -56,6 +56,7 @@ private:
     void hostModes();
     void updateGear(uint64_t now);
     std::string broadcastMode() const;
+    bool autoWaiting() const;
     bool gearAction(const std::string& name, const std::string& value);
     std::string gearSnapshot() const;
     link::HostLink link_;

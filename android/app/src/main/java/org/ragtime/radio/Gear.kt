@@ -22,7 +22,9 @@ internal data class GearRow(val mode: String, val label: String, val speed: Stri
  * the mode broadcasts go in. The gears come from the thresholds
  * data2g-host gives with its modes; a host that gives none has no gears.
  */
-internal data class GearState(val auto: Boolean = true, val path: String = "awgn", val pathLabel: String = "Calm",
+internal data class GearState(val auto: Boolean = true,
+    /** Auto is on and no station has been heard: no gear yet, and sending is in the modem's own mode. */
+    val waiting: Boolean = false, val path: String = "awgn", val pathLabel: String = "Calm",
     val hostThresholds: Boolean = false, val mode: String = "", val label: String = "", val speed: String = "", val bps: Long = 0,
     val snr: String = "", val snrFrom: String = "", val snrBursts: Int = 0,
     val paths: List<Pair<String, String>> = emptyList(), val ladder: List<GearRow> = emptyList()) {
@@ -33,7 +35,7 @@ internal data class GearState(val auto: Boolean = true, val path: String = "awgn
         fun parse(j: JSONObject?): GearState {
             if(j == null) return GearState()
             val paths = j.optJSONArray("paths"); val ladder = j.optJSONArray("ladder")
-            return GearState(j.optBoolean("auto", true), j.optString("path", "awgn"), j.optString("pathLabel", "Calm"), j.optBoolean("hostThresholds"),
+            return GearState(j.optBoolean("auto", true), j.optBoolean("waiting"), j.optString("path", "awgn"), j.optString("pathLabel", "Calm"), j.optBoolean("hostThresholds"),
                 j.optString("mode"), j.optString("label"), j.optString("speed"), j.optLong("bps"), j.optString("snr"), j.optString("snrFrom"), j.optInt("snrBursts"),
                 if(paths == null) emptyList() else (0 until paths.length()).map { paths.getJSONObject(it).let { p -> p.getString("key") to p.getString("label") } },
                 if(ladder == null) emptyList() else (0 until ladder.length()).map { ladder.getJSONObject(it).let { g ->
@@ -61,16 +63,18 @@ internal fun GearButton(gear: GearState, ready: Boolean, onClick: () -> Unit) {
             Column(Modifier.weight(1f)) {
                 Text(when {
                     gear.label.isNotEmpty() -> gear.label
+                    gear.waiting -> "Gearshift"
                     !ready -> "Gearshift"
                     else -> "No gears"
                 }, fontWeight = FontWeight.Bold)
                 Text(when {
                     gear.label.isNotEmpty() -> gear.speed + (if(gear.snr.isNotEmpty()) " · weakest path ${gear.snr}" else "")
+                    gear.waiting -> "The modem's own mode until a station is heard"
                     !ready -> "Connect to see the gears"
                     else -> "The modem gave no thresholds; sending in its own mode"
                 }, style = MaterialTheme.typography.bodySmall)
             }
-            if(gear.label.isNotEmpty()) Text(if(gear.auto) "Auto" else "By hand", style = MaterialTheme.typography.labelLarge)
+            if(gear.label.isNotEmpty() || gear.waiting) Text(if(gear.auto) "Auto" else "By hand", style = MaterialTheme.typography.labelLarge)
         }
     }
 }
@@ -93,7 +97,7 @@ internal fun GearSheet(model: RadioModel, onDismiss: () -> Unit) {
                     Column(Modifier.weight(1f).padding(end = 12.dp)) {
                         Text("Auto")
                         Text(if(gear.snr.isNotEmpty()) "Going by ${gear.snrFrom}, the weakest station heard lately: ${gear.snr} over ${gear.snrBursts} burst${if(gear.snrBursts == 1) "" else "s"}, with 3 dB to spare."
-                             else "Picks the fastest gear the weakest station heard lately can copy. No station's S/N is known yet, so it stays in the gear chosen.",
+                             else "Picks the fastest gear the weakest station heard lately can copy. No station has been heard yet, so for now Ragtime sends in the mode the modem is set to.",
                             style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                     Switch(checked = gear.auto, onCheckedChange = { model.action("gear-auto", it.toString()) }, modifier = Modifier.testTag("gear-auto"))

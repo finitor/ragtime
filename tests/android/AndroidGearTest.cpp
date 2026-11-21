@@ -83,22 +83,29 @@ int main()
         std::vector<Phone*> both = {&a, &b};
         CHECK(run(air, both, [&] { return a.has("ready", "true") && b.has("ready", "true") && !ladder(gear(a)).empty(); }));
 
-        // The host's thresholds make a ladder, and Auto starts at its bottom.
+        // The host's thresholds make a ladder. With nobody heard yet Auto has
+        // nothing to go by: no gear is in effect, and a line goes in the mode
+        // the modem is set to, with no mode asked of it.
         std::string g = gear(a);
         const std::vector<std::string> gears = ladder(g);
         CHECK(gears.size() >= 3);
         CHECK(g.find("\"hostThresholds\":true") != std::string::npos);
         CHECK(g.find("\"auto\":true") != std::string::npos);
-        CHECK_EQ(field(g, "mode"), gears.front());
+        CHECK(g.find("\"waiting\":true") != std::string::npos);
+        CHECK(field(g, "mode").empty() && field(g, "label").empty());
         CHECK(field(g, "snr").empty());
-        CHECK(!field(g, "label").empty() && !field(g, "speed").empty());
         CHECK_EQ(field(g, "pathLabel"), std::string("Calm"));
+        CHECK(a.client.action("broadcast", "first line, nobody heard yet", now));
+        CHECK(run(air, both, [&] { return b.client.snapshot(now).find("nobody heard yet") != std::string::npos; }));
+        for (const std::string& command : hostA.commands()) CHECK(command.compare(0, 10, "BCAST MODE") != 0);
 
         // A strong station heard: Auto shifts up, and says whose S/N it goes by.
         CHECK(b.client.action("broadcast", "CQ D2G de TESTB", now));
         CHECK(run(air, both, [&] { return field(gear(a), "snrFrom") == "TESTB"; }));
         g = gear(a);
         CHECK(!field(g, "snr").empty());
+        CHECK(g.find("\"waiting\":false") != std::string::npos);
+        CHECK(!field(g, "label").empty() && !field(g, "speed").empty());
         const std::string fast = field(g, "mode");
         CHECK(fast != gears.front());
         // What we send goes in that gear's mode.
