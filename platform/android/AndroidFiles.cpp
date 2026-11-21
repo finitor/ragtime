@@ -70,6 +70,7 @@ void AndroidClient::collectFiles(uint64_t now) {
         line.from = f.outgoing ? link_.settings().callsign : f.peer;
         line.atMs = f.atMs; line.text = f.name + ": " + files::resultLabel(f);
         line.path = f.path; line.checked = files::checkedWhole(f) && !e.partKept;
+        line.picture = f.picture; line.voice = f.voice;
         sessionLog_.file(f.peer, line);
         // Above every id SessionChat gives out, so the list's keys stay unique.
         line.id = (uint64_t(1) << 62) + sessionFileLines_.size();
@@ -82,9 +83,9 @@ void AndroidClient::collectFiles(uint64_t now) {
         if (e.type == Type::Announced || e.type == Type::Sending)
             broadcast_.addFile(f.id, f.outgoing, f.from, f.name, now);
         else if (e.type == Type::Saved)
-            broadcast_.fileEnded(f.id, "Saved", f.path);
+            broadcast_.fileEnded(f.id, "Saved", f.path, f.picture, f.voice);
         else if (e.type == Type::Ended)
-            broadcast_.fileEnded(f.id, broadcast::stateLabel(f.state), f.outgoing ? f.path : std::string());
+            broadcast_.fileEnded(f.id, broadcast::stateLabel(f.state), f.outgoing ? f.path : std::string(), f.picture, f.voice);
         else broadcast_.fileChanged();
     }
     for (auto& f : broadcastFiles_.takeFinished()) fileHistory_.add(std::move(f));
@@ -92,9 +93,12 @@ void AndroidClient::collectFiles(uint64_t now) {
 
 bool AndroidClient::fileAction(const std::string& action, const std::string& value, uint64_t now) {
     std::string error;
-    if (action == "file-broadcast" || action == "file-offer") {
+    // picture-*: the file is an inline picture's codestream (kind 0x01).
+    const bool picture = action == "picture-broadcast" || action == "picture-offer";
+    const bool offer = action == "file-offer" || action == "picture-offer";
+    if (action == "file-broadcast" || offer || picture) {
         std::string path = value, peer;
-        if (action == "file-offer") {
+        if (offer) {
             auto split = value.find('\0');
             if (split == std::string::npos) throw std::invalid_argument("Missing file recipient");
             peer = value.substr(0, split); path = value.substr(split + 1);
@@ -106,8 +110,8 @@ bool AndroidClient::fileAction(const std::string& action, const std::string& val
         const auto relative = source.lexically_relative(base);
         if (relative.empty() || *relative.begin() == ".." || !std::filesystem::is_regular_file(source))
             throw std::invalid_argument("Choose an app-private imported file");
-        auto id = action == "file-broadcast" ? broadcastFiles_.send(path, "", now, error)
-                                              : sessionFiles_.offer(peer, path, now, error);
+        auto id = offer ? sessionFiles_.offer(peer, path, now, error, picture)
+                        : broadcastFiles_.send(path, "", now, error, picture);
         if (!id && !error.empty()) throw std::runtime_error(error);
         fileTraffic_.update(now);
         return id != 0;
@@ -155,14 +159,16 @@ std::string AndroidClient::fileSnapshot(uint64_t now) const {
     auto add = [&](const std::string& key, const std::string& via, const std::string& name,
                    const std::string& peer, const std::string& state, const std::string& path,
                    uint64_t size, uint64_t done, uint64_t at, bool ours, bool live, bool checked,
-                   bool receive, bool decline, bool cancel, bool resume, bool forget, const std::string& error) {
+                   bool receive, bool decline, bool cancel, bool resume, bool forget, const std::string& error,
+                   bool picture) {
         if (!first) out << ','; first = false;
         out << "{\"key\":" << quote(key) << ",\"via\":" << quote(via) << ",\"name\":" << quote(name)
             << ",\"peer\":" << quote(peer) << ",\"state\":" << quote(state) << ",\"path\":" << quote(path)
             << ",\"size\":" << size << ",\"done\":" << done << ",\"time\":" << at
             << ",\"ours\":" << yes(ours) << ",\"live\":" << yes(live) << ",\"checked\":" << yes(checked)
             << ",\"receive\":" << yes(receive) << ",\"decline\":" << yes(decline) << ",\"cancel\":" << yes(cancel)
-            << ",\"resume\":" << yes(resume) << ",\"forget\":" << yes(forget) << ",\"error\":" << quote(error) << '}';
+            << ",\"resume\":" << yes(resume) << ",\"forget\":" << yes(forget) << ",\"error\":" << quote(error)
+            << ",\"picture\":" << yes(picture) << '}';
     };
     for (const auto& r : fileTraffic_.rows(now)) {
         const auto* t = sessionFiles_.transfer(r.id);
@@ -171,7 +177,7 @@ std::string AndroidClient::fileSnapshot(uint64_t now) const {
         add(std::string(kept ? "k:" : "s:") + std::to_string(r.id), "Session", r.name, r.peer, r.state,
             "", r.size, r.done, r.atMs, r.outgoing, !kept, false, asking, asking, !kept,
             kept && r.outgoing && session_.peer() == r.peer && session_.phase() == session::SessionChat::Phase::Connected,
-            kept, t ? t->error : std::string());
+            kept, t ? t->error : std::string(), t != nullptr && t->picture);
     }
     for (const auto& r : broadcastFiles_.rows(now)) {
         broadcast::BroadcastFile f;
@@ -180,7 +186,7 @@ std::string AndroidClient::fileSnapshot(uint64_t now) const {
         const bool receive = !f.outgoing && (f.state == S::Heard || f.state == S::Incomplete);
         add("b:" + std::to_string(r.id), "Broadcast", r.name, r.peer, r.state, "", r.size, r.done,
             r.atMs, r.outgoing, true, f.complete, receive, receive,
-            f.outgoing || f.state == S::Receiving, false, false, f.error);
+            f.outgoing || f.state == S::Receiving, false, false, f.error, f.picture);
     }
     for (const auto& f : fileHistory_.entries()) {
         const bool saved = f.result == files::FinishedFile::Result::Saved;
@@ -189,7 +195,7 @@ std::string AndroidClient::fileSnapshot(uint64_t now) const {
             f.name, f.peer, files::resultLabel(f), saved || sent ? f.path : std::string(), f.size,
             saved || sent ? f.size : 0, f.atMs, f.outgoing, false,
             files::checkedWhole(f) || (f.via == files::Via::Broadcast && saved),
-            false, false, false, false, true, f.reason);
+            false, false, false, false, true, f.reason, f.picture);
     }
     return out.str() + ']';
 }
