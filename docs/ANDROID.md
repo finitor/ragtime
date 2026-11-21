@@ -74,9 +74,10 @@ by comparing each snapshot with what it has already seen: what was there
 when the connection started, and what a new ragchew reads back from its
 log (the snapshot marks those lines `past`), alerts nobody. One
 notification a station and kind, its newest line replacing the last. In
-demo mode the title says "Demo:". Android's own settings for the channel
-turn them off; there is no switch in the app, and no way yet to refuse
-calls. Checked by `AlertTrackerTest` (JVM) and `AlertsTest` on the S26,
+demo mode the title says "Demo:". Settings has the switch, "Notify me of
+calls and messages", on by default and remembered; when Android itself
+is blocking Ragtime's notifications the switch says so and offers
+Android's settings. There is no way yet to refuse calls. Checked by `AlertTrackerTest` (JVM) and `AlertsTest` on the S26,
 on demo mode's net.
 
 What has been checked, and where:
