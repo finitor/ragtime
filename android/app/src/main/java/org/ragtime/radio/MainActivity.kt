@@ -98,6 +98,7 @@ private fun RadioApp(model: RadioModel) {
         picturePicker.launch(androidx.activity.result.PickVisualMediaRequest(ActivityResultContracts.PickVisualMedia.ImageOnly))
     }
     var attach by remember { mutableStateOf(false) }
+    var gears by rememberSaveable { mutableStateOf(false) }
     val saver=rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("application/octet-stream")) { uri:Uri?->
         if(uri!=null)model.exportFile(exportPath,exportName,uri)
     }
@@ -182,7 +183,7 @@ private fun RadioApp(model: RadioModel) {
                     }
                 }
             } else if(chat) {
-                if(view=="Field desk") FieldStatus(state)
+                if(view=="Field desk") FieldStatus(state) { gears=true }
                 Row(Modifier.fillMaxWidth().padding(horizontal=16.dp,vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
                     FilterChip(selected=thread=="Broadcast",onClick={thread="Broadcast"},label={Text("Broadcast")})
                     FilterChip(selected=thread=="Ragchew",onClick={thread="Ragchew"},label={Text(if(state.active)state.peer else "Ragchew")})
@@ -243,6 +244,7 @@ private fun RadioApp(model: RadioModel) {
             onAskNotifications={ if(Build.VERSION.SDK_INT>=33)notificationPermission.launch(Manifest.permission.POST_NOTIFICATIONS) })
     }
     model.pictureDraft?.let { PictureSheet(model,it) }
+    if(gears) GearSheet(model) { gears=false }
     if(about) AboutRagtime(onNotice={notice=it}) { about=false }
     notice?.let { NoticeSheet(it) { notice=null } }
     if(picked!=null) {
@@ -265,12 +267,14 @@ private fun RadioApp(model: RadioModel) {
 }
 
 @Composable
-private fun FieldStatus(state: RadioSnapshot) {
+private fun FieldStatus(state: RadioSnapshot, onGear: () -> Unit) {
     Surface(color=MaterialTheme.colorScheme.surfaceContainer) {
         Column(Modifier.fillMaxWidth().padding(16.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
-            Text(state.mode.ifEmpty { "Waiting for host mode" },style=MaterialTheme.typography.titleLarge)
+            Text(state.mode.ifEmpty { if(state.ready)"Listening" else "Waiting for the modem" },style=MaterialTheme.typography.titleLarge)
             Text(if(state.ptt)"TX on" else state.channel.ifEmpty { "Host not ready" })
             Text("${if(state.narrow)"500 Hz modes" else "2.3 kHz modes"} · ${if(state.paused)"Sending paused" else "Sending enabled"}",style=MaterialTheme.typography.labelMedium)
+            // The gear broadcasts go in, always in sight here; a tap opens the gearshift.
+            GearButton(state.gear,state.ready,onGear)
             Text("Dial frequency is not available from this host connection.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }

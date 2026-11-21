@@ -72,6 +72,16 @@ class DemoGuideTest {
         assertTrue(licences.any { it.kind==NoticePart.Kind.Legal&&it.text=="END OF TERMS AND CONDITIONS" })
     }
 
+    @Test fun airtimeIsSaidInSecondsThenMinutes() {
+        assertEquals("1 s",GearState.duration(0.2))
+        assertEquals("59 s",GearState.duration(59.4))
+        assertEquals("1 min 10 s",GearState.duration(70.0))
+        assertEquals("12 min",GearState.duration(700.0))
+        assertEquals("about 2 min 8 s",GearState(bps=500).airtime(8000))
+        assertEquals("No gear, no estimate","",GearState().airtime(8000))
+        assertEquals(GearState(),GearState.parse(null))
+    }
+
     @Test fun demoSettingsNeedNoHostOrCallsign() {
         val demo=HostSettings(host="",call="",demo=true).validated()
         assertEquals(HostSettings.DEMO_CALL,demo.call)

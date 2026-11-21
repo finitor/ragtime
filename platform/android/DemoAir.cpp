@@ -46,18 +46,20 @@ struct Profile
     double signalDb;
 };
 
-// The demo's stations, strong to weak. Nobody holds these callsigns: the
+// The demo's stations, strong to weak: all well heard, so the gearshift's
+// Auto has a middle gear to pick and a picture's airtime is minutes, not
+// the quarter of an hour a station at -11 dB would make it. Nobody holds these callsigns: the
 // prefixes are real (two American, two European) and the suffixes are Q
 // signals, which the FCC never assigns (QRA to QUZ, the ARRL's vanity call
 // sign notes) and other administrations keep clear of. The names are made
 // up too. android/.../DemoGuide.kt names the first two.
 const Profile PROFILES[] = {
     {"W1QSO", "FN42", true, {"QST de W1QSO: D2G net bulletin at the top of the hour", "CQ CQ de W1QSO", "QRV, 73"},
-     "Walt", 12.0},
+     "Walt", 15.0},
     {"K7QTH", "CN87", true, {"Testing the new polar modes tonight", "CQ D2G de K7QTH", "Band is open to EU"}, "Kay",
-     3.0},
-    {"DL3QRM", "JO62", true, {"Good evening from Berlin", "CQ CQ de DL3QRM", "Greyline path is up"}, "Dieter", -6.0},
-    {"F5QRN", "JN18", false, {"Greetings from Paris, 73", "CQ de F5QRN", "Anyone hear me on 20 m?"}, "Luc", -11.0},
+     10.0},
+    {"DL3QRM", "JO62", true, {"Good evening from Berlin", "CQ CQ de DL3QRM", "Greyline path is up"}, "Dieter", 6.0},
+    {"F5QRN", "JN18", false, {"Greetings from Paris, 73", "CQ de F5QRN", "Anyone hear me on 20 m?"}, "Luc", 3.0},
 };
 constexpr size_t STATIONS = sizeof(PROFILES) / sizeof(PROFILES[0]);
 
