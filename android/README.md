@@ -12,7 +12,9 @@ service, so the connection outlives switching apps. Pictures show inline
 and are sent from the + beside the entry line; voice messages arrive as
 plain files; rig control, reactions and recent-contact prediction are
 not implemented. Field desk shows actual host
-mode/channel reports; dial frequency needs a separate rig adapter.
+mode/channel reports and the gearshift, which picks the mode broadcasts
+go in where the modem gives thresholds (Data2G 0.5.1 on); dial frequency
+needs a separate rig adapter.
 The Hello capability mask says text, status, seals, pings and files, not
 reactions, and automatic Hand answers are off until this client supports
 the full record set.

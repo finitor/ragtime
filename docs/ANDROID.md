@@ -79,8 +79,10 @@ in and pixels out, and holds no client: a picture's bytes are fetched on
 the link's worker (`pictureBytes`: from the file engines while it moves,
 from the station's own folder after) and decoded on a thread of their
 own, since a Cool-chic picture takes seconds. Not there yet: sending
-Cool-chic (its fitting takes minutes of CPU), an airtime estimate in the
-sheet, and the stop sign for a picture that is good enough.
+Cool-chic (its fitting takes minutes of CPU) and the stop sign for a
+picture that is good enough. A picture with nothing in it (one flat
+colour) is not sent: the shared codec takes so small a codestream for a
+picture not yet arrived.
 
 Connect starts a foreground service with an ongoing notification (open,
 Disconnect), so the connection and a ragchew outlive switching apps. A
@@ -88,9 +90,30 @@ red TX badge in the top bar follows data2g-host's PTT reports in every
 view. Settings shows the version and build, with About and release
 notes; About has Privacy and Open source licences, the notices the
 licences and Google Play ask to be in the app
-([the audit](ANDROID_LICENSES.md), [the privacy text](ANDROID_PRIVACY.md)). Field desk shows the real mode, bandwidth and channel reports.
-Dial and rig integration, voice, inline pictures, reactions, automatic
-Hand answers and recent-contact prediction are not implemented.
+([the audit](ANDROID_LICENSES.md), [the privacy text](ANDROID_PRIVACY.md)). Field desk shows the real mode, bandwidth and channel reports, and the gear.
+Dial and rig integration, voice, reactions, automatic Hand answers and
+recent-contact prediction are not implemented.
+
+**Gearshift** (2026-11-21). The desktop's gearshift (core `gearbox`)
+picks the mode the phone's broadcasts go in: lines, check-ins, status,
+files and pictures on D2G, and the gears the seals' repairs may use. It
+is fed as the desktop feeds it (`platform/android/AndroidGear.cpp`):
+data2g-host's MODES with their thresholds, the weakest station heard in
+15 minutes, and the 500 Hz switch. The gears exist only where the modem
+gives thresholds, Data2G 0.5.1 on; with an older one there are none, the
+button says so, and Ragtime sends in the mode the modem is set to, as it
+did before. There is no thresholds file to load on the phone. Auto is on
+until the operator taps a gear, and the choice, Auto and the path are
+kept. Field desk shows the gear in effect, its speed and the weakest
+path, and a tap opens the gearshift: Auto, the path (Calm, Good, Poor,
+Disturbed), and the ladder, each gear with its speed, the S/N it needs,
+its time per KB and how many dB short the weakest path is for it. A
+ragchew's speed is the modem's own affair. The picture sheet now says
+about how long a picture for D2G will take in the gear in effect. Left
+out: the width chips (the 500 Hz switch is the only width control), the
+noise-floor line (it needs a rig's S-meter), the map of modes, and a
+per-file or per-station repair gear. Checked by
+`ragtime_android_gear_test` on the desktop and `GearTest` on the S26.
 
 **Alerts** (2026-11-21). While no Ragtime window is in sight, a
 notification on its own channel, "Calls and messages", tells the
@@ -126,8 +149,9 @@ What has been checked, and where:
   read back once, paths outside the station's folder refused).
 - The tethered S26 (SM-S948U1, Android 17/API 37), 0.1.0 build 2, against
   the loopback fake-host bench over USB (2026-11-21, 121 s with demo
-  mode's, the notices', the alerts', the roll call's and the pictures'
-  tests (165 s in all), 11 passed, the two real-modem tests skipped; the bench's tests run twice on one bench with no restart):
+  mode's, the notices', the alerts', the roll call's, the pictures' and
+  the gearshift's tests (169 s in all), 12 passed, the two real-modem
+  tests skipped; the bench's tests run twice on one bench with no restart):
   the packaged-JNI interop test (UTF-8 and emoji broadcast, addressed
   acknowledgements, session text, a session file saved byte for byte
   with its line in the ragchew, Leave, a broadcast file taken with

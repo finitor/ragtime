@@ -177,6 +177,11 @@ internal fun PictureSheet(model: RadioModel, draft: PictureDraft) {
                 preview != null -> "${preview.width} × ${preview.height}, ${"%.1f".format(draft.bytes / 1024.0)} KB as it will arrive"
                 else -> "Reading the picture…"
             }, color = if(draft.error.isNotEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface)
+            // What it costs in airtime, in the gear broadcasts go in. A ragchew's speed is the modem's to set.
+            val gear = model.snapshot.gear
+            if(draft.target.isEmpty() && draft.bytes > 0 && gear.bps > 0 && draft.error.isEmpty())
+                Text("${gear.airtime(draft.bytes).replaceFirstChar { it.uppercase() }} on the air in ${gear.label}, before its seal and any repairs.",
+                    style = MaterialTheme.typography.bodySmall, modifier = Modifier.testTag("picture-airtime"))
             Text("Longest side", style = MaterialTheme.typography.labelMedium)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 for(side in Pictures.SIDES) FilterChip(selected = draft.side == side, onClick = { model.pictureOptions(side, draft.budget) }, label = { Text("$side") })

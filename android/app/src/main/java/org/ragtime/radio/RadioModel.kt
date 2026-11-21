@@ -37,7 +37,8 @@ internal data class RadioSnapshot(
     val dataUp: Boolean = false, val mode: String = "", val channel: String = "", val peer: String = "",
     val active: Boolean = false, val phase: Int = 0, val incoming: Boolean = false, val sessionStatus: String = "",
     val broadcast: List<ChatRow> = emptyList(), val session: List<ChatRow> = emptyList(), val stations: List<StationRow> = emptyList(),
-    val files:List<TransferRow> = emptyList()
+    val files:List<TransferRow> = emptyList(),
+    val gear: GearState = GearState()
 ) {
     companion object {
         fun parse(text: String): RadioSnapshot {
@@ -57,7 +58,8 @@ internal data class RadioSnapshot(
                         it.getLong("size"),it.getLong("done"),it.getLong("time"),it.getBoolean("ours"),it.getBoolean("live"),it.getBoolean("checked"),
                         it.getBoolean("receive"),it.getBoolean("decline"),it.getBoolean("cancel"),it.getBoolean("resume"),it.getBoolean("forget"),it.getString("error"),
                         it.optBoolean("picture"))
-                } })
+                } },
+                gear=GearState.parse(j.optJSONObject("gear")))
         }
     }
 }
@@ -305,7 +307,7 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
                 val preview=Pictures.decode(coded)?.asImageBitmap()
                 main.post { if(serial==draftSerial) {
                     draftCoded=coded
-                    pictureDraft=pictureDraft?.copy(preview=preview,bytes=coded.size,busy=false,error=if(preview==null)"The picture could not be read back" else "")
+                    pictureDraft=pictureDraft?.copy(preview=preview,bytes=coded.size,busy=false,error=if(preview==null)"There is too little in this picture to send it" else "")
                 } }
             } catch(e:Throwable) { main.post { if(serial==draftSerial)pictureDraft=pictureDraft?.copy(busy=false,error=e.message ?: "The picture could not be coded") } }
         }
