@@ -26,6 +26,12 @@ class AboutTest {
         app.waitUntil(5000) { app.onAllNodesWithText("Ragtime for Android: privacy").fetchSemanticsNodes().isEmpty() }
 
         app.onNodeWithText("About Ragtime & release notes").performClick()
+        // This build's own number, and the notes that go with it.
+        app.onNodeWithText("Ragtime for Android ${BuildConfig.VERSION_NAME}",substring=true).assertExists()
+        app.onNodeWithTag("about-list").performScrollToNode(hasText("${BuildConfig.VERSION_NAME}, build ${BuildConfig.VERSION_CODE}"))
+        app.onNodeWithTag("about-list").performScrollToNode(hasText("Not in this build"))
+        app.onNodeWithTag("about-list").performScrollToNode(hasText("Known limits"))
+        app.onNodeWithTag("about-list").performScrollToNode(hasText("Open source licences"))
         app.onNodeWithText("Open source licences").performClick()
         // Ragtime's own notice, which MIT asks for in every copy.
         app.onNodeWithText("Copyright (c) 2026 Jeffrey Baitis",substring=true).assertExists()

@@ -5,14 +5,17 @@ plugins {
 }
 android {
     namespace = "org.ragtime.radio"
-    compileSdk = 35
+    // What Google Play asks of a new app since 2026-08-31: Android 16.
+    compileSdk = 36
     ndkVersion = "28.2.13676358"
     defaultConfig {
         applicationId = "org.ragtime.radio"
         minSdk = 26
-        targetSdk = 35
-        versionCode = 2
-        versionName = "0.1.0"
+        targetSdk = 36
+        // Raise versionCode with every APK handed to anyone; the notes for a
+        // version are docs/ANDROID_RELEASE_NOTES.md, shown in About.
+        versionCode = 3
+        versionName = "0.2.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         ndk { abiFilters += "arm64-v8a" }
         externalNativeBuild { cmake { targets += "ragtime_jni" } }
@@ -27,8 +30,8 @@ android {
 }
 // The notices the app shows (About > Open source licences, Privacy) come
 // from the repository's own files, so the app cannot drift from them:
-// Ragtime's LICENSE, docs/ANDROID_PRIVACY.md and the Cool-chic port's
-// notices. The Apache text and OpenJPEG's are checked-in assets.
+// Ragtime's LICENSE, docs/ANDROID_PRIVACY.md, docs/ANDROID_RELEASE_NOTES.md
+// and the Cool-chic port's notices. The Apache text and OpenJPEG's are checked-in assets.
 val noticeAssets = layout.buildDirectory.dir("generated/notices")
 val copyNotices by tasks.registering(Copy::class) {
     from(rootProject.file("../LICENSE")) { into("licenses"); rename { "ragtime-mit.txt" } }
@@ -36,6 +39,7 @@ val copyNotices by tasks.registering(Copy::class) {
     from(rootProject.file("../image/src/coolchic/LICENSE.txt")) { into("licenses"); rename { "coolchic-bsd-3.txt" } }
     from(rootProject.file("../image/src/coolchic/LICENSE-SOAP.txt")) { into("licenses"); rename { "soap-mit.txt" } }
     from(rootProject.file("../docs/ANDROID_PRIVACY.md")) { rename { "privacy.md" } }
+    from(rootProject.file("../docs/ANDROID_RELEASE_NOTES.md")) { rename { "release-notes.md" } }
     into(noticeAssets)
 }
 android.sourceSets["main"].assets.srcDir(noticeAssets.get().asFile)
