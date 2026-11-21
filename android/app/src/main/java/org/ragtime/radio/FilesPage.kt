@@ -14,7 +14,7 @@ internal fun FilesPage(model:RadioModel,onPick:(String)->Unit,onSave:(TransferRo
     val s=model.snapshot
     Column(Modifier.fillMaxSize().padding(horizontal=16.dp)) {
         Text("Send a file",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp))
-        Text("Up to 300 KB. Broadcast is public; a session sends to its partner.",style=MaterialTheme.typography.bodySmall)
+        Text("Up to 300 KB. Broadcast is public; a session sends to its partner. Pictures go from the + beside a conversation's entry line.",style=MaterialTheme.typography.bodySmall)
         Row(Modifier.fillMaxWidth().padding(vertical=8.dp),horizontalArrangement=Arrangement.spacedBy(8.dp)) {
             OutlinedButton(onClick={onPick("")},enabled=s.ready,modifier=Modifier.weight(1f)) { Text("Broadcast file") }
             Button(onClick={onPick(s.peer)},enabled=s.ready&&s.phase==2,modifier=Modifier.weight(1f)) {
@@ -27,20 +27,21 @@ internal fun FilesPage(model:RadioModel,onPick:(String)->Unit,onSave:(TransferRo
         LazyColumn(Modifier.weight(1f),verticalArrangement=Arrangement.spacedBy(10.dp),contentPadding=PaddingValues(bottom=16.dp)) {
             if(s.files.isEmpty())item { Text("No file transfers yet.",modifier=Modifier.padding(vertical=24.dp)) }
             if(live.isNotEmpty())item { Text("In progress & parts",style=MaterialTheme.typography.titleMedium) }
-            items(live,key={it.key}) { row->TransferCard(row,s.ready,{action->model.action("file-$action",row.key)},onSave) }
+            items(live,key={it.key}) { row->TransferCard(model,row,s.ready,{action->model.action("file-$action",row.key)},onSave) }
             if(done.isNotEmpty())item { Text("Completed",style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=12.dp)) }
-            items(done,key={it.key}) { row->TransferCard(row,s.ready,{action->model.action("file-$action",row.key)},onSave) }
+            items(done,key={it.key}) { row->TransferCard(model,row,s.ready,{action->model.action("file-$action",row.key)},onSave) }
         }
     }
 }
 
 @Composable
-private fun TransferCard(row:TransferRow,connected:Boolean,action:(String)->Unit,onSave:(TransferRow)->Unit) {
+private fun TransferCard(model:RadioModel,row:TransferRow,connected:Boolean,action:(String)->Unit,onSave:(TransferRow)->Unit) {
     Card(Modifier.fillMaxWidth()) {
         Column(Modifier.padding(14.dp),verticalArrangement=Arrangement.spacedBy(6.dp)) {
             Text(row.name,fontWeight=FontWeight.Medium)
             Text("${row.via} · ${if(row.ours)"To" else "From"} ${row.peer}",style=MaterialTheme.typography.bodySmall)
             Text(row.state,style=MaterialTheme.typography.bodyMedium)
+            if(row.pictureSource.isNotEmpty())InlinePicture(model,row.pictureSource,row.done,"Picture ${row.name}",maxWidth=200)
             if(row.size>0) {
                 LinearProgressIndicator(progress={(row.done.toFloat()/row.size).coerceIn(0f,1f)},modifier=Modifier.fillMaxWidth())
                 Text("${row.done} / ${row.size} bytes",style=MaterialTheme.typography.labelSmall)

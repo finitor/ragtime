@@ -27,11 +27,14 @@ android {
 }
 // The notices the app shows (About > Open source licences, Privacy) come
 // from the repository's own files, so the app cannot drift from them:
-// Ragtime's LICENSE and docs/ANDROID_PRIVACY.md. The Apache text is a
-// checked-in asset.
+// Ragtime's LICENSE, docs/ANDROID_PRIVACY.md and the Cool-chic port's
+// notices. The Apache text and OpenJPEG's are checked-in assets.
 val noticeAssets = layout.buildDirectory.dir("generated/notices")
 val copyNotices by tasks.registering(Copy::class) {
     from(rootProject.file("../LICENSE")) { into("licenses"); rename { "ragtime-mit.txt" } }
+    // The Cool-chic port's notices (Orange, BSD-3; the SOAP optimiser, MIT).
+    from(rootProject.file("../image/src/coolchic/LICENSE.txt")) { into("licenses"); rename { "coolchic-bsd-3.txt" } }
+    from(rootProject.file("../image/src/coolchic/LICENSE-SOAP.txt")) { into("licenses"); rename { "soap-mit.txt" } }
     from(rootProject.file("../docs/ANDROID_PRIVACY.md")) { rename { "privacy.md" } }
     into(noticeAssets)
 }

@@ -1,10 +1,12 @@
 #include <jni.h>
+#include <algorithm>
 #include <map>
 #include <memory>
 #include <mutex>
 #include <stdexcept>
 
 #include "AndroidClient.h"
+#include "AndroidPictures.h"
 #include "DemoAir.h"
 
 namespace
@@ -74,6 +76,7 @@ Java_org_ragtime_radio_NativeCore_invoke(JNIEnv* env, jobject, jlong id, jint op
         else if (operation >= 10 && operation <= 12) client.receive(operation - 10, bytes(env, input), (uint64_t)now);
         else if (operation >= 20 && operation <= 22) result = client.output(operation - 20, (uint64_t)now);
         else if (operation == 30) { auto text = client.snapshot((uint64_t)now); result.assign(text.begin(), text.end()); }
+        else if (operation == 31) result = client.pictureBytes(string(env, input), (uint64_t)now);
         else if (operation == 40)
         {
             auto text = string(env, input);
@@ -86,6 +89,44 @@ Java_org_ragtime_radio_NativeCore_invoke(JNIEnv* env, jobject, jlong id, jint op
     }
     catch (const std::exception& e) { fail(env, e); }
     catch (...) { env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), "Native operation failed"); }
+    return nullptr;
+}
+// Inline pictures. None of these touch a client or its lock: a picture is
+// decoded on a thread of the app's own while the link carries on.
+extern "C" JNIEXPORT jboolean JNICALL
+Java_org_ragtime_radio_NativeCore_picturesAvailable(JNIEnv*, jobject)
+{
+    return ragtime::android::picturesAvailable() ? JNI_TRUE : JNI_FALSE;
+}
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_org_ragtime_radio_NativeCore_encodePicture(JNIEnv* env, jobject, jbyteArray rgba, jint width, jint height, jint maxSide, jint maxBytes)
+{
+    try
+    {
+        const auto pixels = bytes(env, rgba);
+        if (width <= 0 || height <= 0 || pixels.size() != (size_t)width * (size_t)height * 4)
+            throw std::invalid_argument("The picture's pixels do not match its size");
+        std::string error;
+        const auto coded = ragtime::android::encodePicture(pixels.data(), width, height, maxSide, (uint64_t)std::max(0, (int)maxBytes), error);
+        if (coded.empty()) throw std::runtime_error(error.empty() ? "The picture could not be coded" : error);
+        return array(env, coded);
+    }
+    catch (const std::exception& e) { fail(env, e); }
+    catch (...) { env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), "The picture could not be coded"); }
+    return nullptr;
+}
+// Empty when there is no picture to show yet: that is no error.
+extern "C" JNIEXPORT jbyteArray JNICALL
+Java_org_ragtime_radio_NativeCore_decodePicture(JNIEnv* env, jobject, jbyteArray coded, jint maxSide)
+{
+    try
+    {
+        const auto in = bytes(env, coded);
+        std::string error;
+        return array(env, ragtime::android::decodePicture(in.data(), in.size(), maxSide, error));
+    }
+    catch (const std::exception& e) { fail(env, e); }
+    catch (...) { env->ThrowNew(env->FindClass("java/lang/IllegalStateException"), "The picture could not be read"); }
     return nullptr;
 }
 // Demo mode's net: one at a time, on a thread of its own. Returns its

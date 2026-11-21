@@ -30,7 +30,10 @@ class AboutTest {
         // Ragtime's own notice, which MIT asks for in every copy.
         app.onNodeWithText("Copyright (c) 2026 Jeffrey Baitis",substring=true).assertExists()
         app.onNodeWithText("MIT License").assertExists()
-        app.onNodeWithText("Libraries under the Apache License 2.0").assertExists()
+        // The picture codecs' notices: OpenJPEG's and the Cool-chic port's.
+        app.onNodeWithTag("notice-list").performScrollToNode(hasText("Universite catholique de Louvain",substring=true))
+        app.onNodeWithTag("notice-list").performScrollToNode(hasText("Copyright 2023-2026 Orange",substring=true))
+        app.onNodeWithTag("notice-list").performScrollToNode(hasText("Libraries under the Apache License 2.0"))
         app.onNodeWithTag("notice-list").performScrollToNode(hasText("END OF TERMS AND CONDITIONS",substring=true))
         app.onNodeWithTag("notice-list").performScrollToNode(hasText("Ragtime does not contain Data2G.",substring=true))
     }
