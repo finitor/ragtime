@@ -360,6 +360,23 @@ void FakeHost::onCommand(const std::string& line)
             reply("MODE " + m.name + " " + std::to_string(m.bandwidthHz) + " " +
                   std::to_string(m.bytesPerCodeword) + " " + std::to_string(m.maxCodewords) + tail);
         }
+        if (thresholds_)
+        {
+            // Made-up figures, not Data2G's: what a mode's speed in its
+            // width would need on a calm path by Shannon's sum, 4 dB off
+            // it, and more on the worse paths.
+            reply("CHANNELS awgn mpg mpp mpd");
+            for (const ModeInfo& m : knownModes())
+            {
+                const double seconds = m.secondsAtMax > 0 ? m.secondsAtMax : 1.0;
+                const double bps = 8.0 * m.bytesPerCodeword * m.maxCodewords / seconds;
+                const double width = m.bandwidthHz > 0 ? m.bandwidthHz : 2400.0;
+                const double calm = 10.0 * std::log10(std::pow(2.0, bps / width) - 1.0) + 10.0 * std::log10(width / 2500.0) + 4.0;
+                char line[96];
+                std::snprintf(line, sizeof(line), " %.1f %.1f %.1f %.1f", calm, calm + 2.0, calm + 5.0, calm + 9.0);
+                reply("THRESHOLD " + m.name + line);
+            }
+        }
         reply("OK");
     }
     else if (verb == "SN" && reportsSnr_ && partner_ != nullptr && partnerSnr_)

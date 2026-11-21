@@ -18,7 +18,7 @@ add_subdirectory("${RAGTIME_ROOT}" ragtime)
 # Demo mode's net is the bench's fake data2g-host (tests/FakeHost.*, POSIX
 # sockets on loopback) with made-up stations on it: no modem and no radio.
 add_library(ragtime_jni SHARED Jni.cpp "${RAGTIME_ROOT}/platform/android/AndroidClient.cpp" "${RAGTIME_ROOT}/platform/android/AndroidFiles.cpp"
-    "${RAGTIME_ROOT}/platform/android/AndroidPictures.cpp"
+    "${RAGTIME_ROOT}/platform/android/AndroidPictures.cpp" "${RAGTIME_ROOT}/platform/android/AndroidGear.cpp"
     "${RAGTIME_ROOT}/platform/android/DemoAir.cpp" "${RAGTIME_ROOT}/tests/FakeHost.cpp")
 target_include_directories(ragtime_jni PRIVATE "${RAGTIME_ROOT}/platform/android" "${RAGTIME_ROOT}/tests")
 target_link_libraries(ragtime_jni PRIVATE ragtime_core ragtime_image)
