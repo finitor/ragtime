@@ -8,7 +8,9 @@ phone UI is a separate frontend.
 The phone has four primary destinations:
 
 - **Stations:** stations heard on the net, recent contacts, and entry
-  points for calling a station or returning to the current ragchew.
+  points for calling a station or returning to the current ragchew. Roll
+  call, which asks every station to check in, is asked for here (it is an
+  action, not a setting: Tim, 2026-11-21).
 - **Conversations:** Broadcast and the active one-to-one ragchew, with
   message history, a composer, attachments, and session Leave controls.
 - **Field desk:** the same selected conversation with the reported dial,
@@ -90,8 +92,8 @@ What has been checked, and where:
   read back once, paths outside the station's folder refused).
 - The tethered S26 (SM-S948U1, Android 17/API 37), 0.1.0 build 2, against
   the loopback fake-host bench over USB (2026-11-21, 121 s with demo
-  mode's, the notices' and the alerts' tests, 8 passed, the two
-  real-modem tests skipped; the bench's tests run twice on one bench with no restart):
+  mode's, the notices', the alerts' and the roll call's tests (157 s
+  with the last), 9 passed, the two real-modem tests skipped; the bench's tests run twice on one bench with no restart):
   the packaged-JNI interop test (UTF-8 and emoji broadcast, addressed
   acknowledgements, session text, a session file saved byte for byte
   with its line in the ragchew, Leave, a broadcast file taken with
