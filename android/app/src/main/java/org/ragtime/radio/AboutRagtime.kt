@@ -39,6 +39,7 @@ internal fun AboutRagtime(onNotice:(Notice)->Unit,onDismiss:()->Unit) {
                     ,"Demo mode in Settings: practise with simulated stations that check in, answer you, take a call and trade files. A guide suggests what to try; nothing is transmitted."
                     ,"Privacy and Open source licences are in About, and Privacy is in Settings too."
                     ,"The Demo mode switch starts the demo when turned on and ends it when turned off."
+                    ,"Notifications while Ragtime is in the background: a station called you, wrote to you with @, said something in your ragchew, or offers you a file. Tap one to land on it."
                     ,"Settings: callsign and locator come first, and a localhost shortcut fills in Data2G running on this phone."
                 )) { note->Text("• $note") }
                 item { Text("Inline picture and voice playback are not included in this build.",style=MaterialTheme.typography.bodySmall) }

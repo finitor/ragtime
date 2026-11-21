@@ -45,7 +45,18 @@ class MainActivity : ComponentActivity() {
             val colors = if(isSystemInDarkTheme()) darkColorScheme(primary=Color(0xffa9c8ff)) else lightColorScheme(primary=Color(0xff235ba9))
             MaterialTheme(colorScheme=colors) { RadioApp(radioModel) }
         }
+        opened(intent)
     }
+    // A tapped notification says where to land. singleTop: it comes here, not to a second Ragtime.
+    override fun onNewIntent(intent: android.content.Intent) { super.onNewIntent(intent);setIntent(intent);opened(intent) }
+    private fun opened(intent: android.content.Intent?) {
+        val view=intent?.getStringExtra(AlertNotifier.EXTRA_OPEN) ?: return
+        intent.removeExtra(AlertNotifier.EXTRA_OPEN)
+        radioModel.openRequest=view
+    }
+    // In sight, the screen says it all: the alerts are for when it is not.
+    override fun onStart() { super.onStart();radioModel.shown(true) }
+    override fun onStop() { radioModel.shown(false);super.onStop() }
 }
 
 @OptIn(ExperimentalMaterial3Api::class,ExperimentalLayoutApi::class)
@@ -84,6 +95,15 @@ private fun RadioApp(model: RadioModel) {
     fun pickFile(target:String) { pickTarget=target;pickStation=model.settings.call;picker.launch(arrayOf("*/*")) }
     fun saveFile(row:TransferRow) { exportPath=row.path;exportName=row.name;saver.launch(row.name) }
     val chat=view=="Conversations"||view=="Field desk"
+    // A notification's tap lands on what it was about.
+    LaunchedEffect(model.openRequest) {
+        when(model.openRequest) {
+            "Ragchew" -> { view="Conversations";thread="Ragchew";returnTo=null;radio=false;about=false;notice=null }
+            "Broadcast" -> { view="Conversations";thread="Broadcast";returnTo=null;radio=false;about=false;notice=null }
+            "Files" -> { view="Files";returnTo=null;radio=false;about=false;notice=null }
+        }
+        model.openRequest=null
+    }
     fun openSession() { returnTo=view;view="Conversations";thread="Ragchew" }
     BackHandler(enabled=returnTo!=null && !radio && picked==null) { view=returnTo!!;returnTo=null }
     Scaffold(

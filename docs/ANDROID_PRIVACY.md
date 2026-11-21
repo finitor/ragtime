@@ -27,7 +27,7 @@ Your settings, your conversations, the stations you have heard and the files you
 ## Permissions
 
 - Network access, to reach the Data2G modem. Ragtime makes no other connection.
-- Notifications and a foreground service, to keep the connection while you use other apps. An ongoing notification shows while it runs and can end it.
+- Notifications and a foreground service, to keep the connection while you use other apps. An ongoing notification shows while it runs and can end it. While Ragtime is in the background, a notification also tells you when a station calls you, writes to you or offers you a file; it shows the station's callsign and what it sent, as your phone's notification settings allow.
 
 Ragtime asks for no location, microphone, camera, contacts or storage permission.
 
