@@ -21,7 +21,15 @@ set(RAGTIME_COOLCHIC_DEC_SOURCES
 
 if(RAGTIME_PICTURES)
     add_library(ragtime_image STATIC src/Codec.cpp ${RAGTIME_COOLCHIC_DEC_SOURCES})
-    target_link_libraries(ragtime_image PRIVATE ragtime::openjpeg ragtime::webp)
+    target_link_libraries(ragtime_image PRIVATE ragtime::openjpeg)
+    # WebP from disk, where the build has libwebp (not Android's, whose
+    # pictures Android reads: -DRAGTIME_FETCH_OPENJPEG=ON).
+    if(TARGET ragtime::webp)
+        target_link_libraries(ragtime_image PRIVATE ragtime::webp)
+        target_compile_definitions(ragtime_image PRIVATE RAGTIME_WEBP=1)
+    else()
+        target_compile_definitions(ragtime_image PRIVATE RAGTIME_WEBP=0)
+    endif()
     if(RAGTIME_HEIF)
         target_link_libraries(ragtime_image PRIVATE ragtime::heif)
         target_compile_definitions(ragtime_image PRIVATE RAGTIME_HEIF=1)
