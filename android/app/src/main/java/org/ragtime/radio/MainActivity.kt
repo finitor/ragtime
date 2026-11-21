@@ -319,7 +319,7 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
             Text("Pause sending");Switch(checked=state.paused,onCheckedChange={model.action("pause",it.toString())},enabled=state.ready)
         } }
         item { OutlinedButton(onClick={model.action("checkin")},enabled=state.ready) { Text("Request roll call") } }
-        item { Text(if(demo)"Demo mode keeps its own history, apart from your station's, and starts fresh each time." else "The modem runs on your separate Data2G host. Ragtime stays connected while you use other apps. Tap its notification to come back, or use Disconnect there to end the connection.",style=MaterialTheme.typography.bodySmall) }
+        item { Text(if(demo)"Demo mode keeps its own history, apart from your station's, and starts fresh each time." else "The modem runs on your separate Data2G host. While connected, Ragtime keeps running when you switch to other apps and shows a notification. Tap the notification to reopen Ragtime, or tap Disconnect on the notification to end the connection.",style=MaterialTheme.typography.bodySmall) }
     }
 }
 
