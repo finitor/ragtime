@@ -124,6 +124,10 @@ thresholds...** in the gearshift. See [docs/GEARBOX.md](docs/GEARBOX.md).
 For macOS packages, build, audio and test instructions, see
 [docs/MACOS.md](docs/MACOS.md).
 
+For the Android development APK, setup and fake-host tests, see
+[android/README.md](android/README.md). Its native phone UI shares the
+C++ core; it chats and passes files, with pictures and voice still pending.
+
 On Ubuntu 24.04:
 
     sudo apt-get install build-essential cmake pkg-config libwxgtk3.2-dev libgtk-3-dev libhamlib-dev libpipewire-0.3-dev \

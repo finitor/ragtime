@@ -4,3 +4,8 @@ compile_commands.json
 __pycache__/
 /packaging/linux/tools/
 /dist/
+/android/.gradle/
+/android/.kotlin/
+/android/local.properties
+/android/app/build/
+/android/app/.cxx/
