@@ -162,8 +162,7 @@ sight) run on the device with the others and need no bench.
 Verified on 2026-11-21 with 0.1.0 build 2: both desktop adapter tests
 pass with the eight HostLink, Broadcast, Session and file CTest targets
 beside them; debug APK assembly and Android lint pass (0 errors, 11
-warnings for the provisional toolchain/ABI choices and missing launcher
-icon); and the tethered S26 (SM-S948U1, Android 17/API 37) passes the
+warnings for the provisional toolchain/ABI choices); and the tethered S26 (SM-S948U1, Android 17/API 37) passes the
 five fake-host tests, demo mode's, the notices' and the alerts' in 121 s (the broadcast file waits
 about 45 s for its seal and repair), over USB on offset ports with its
 own TNC left running. The system document picker, the

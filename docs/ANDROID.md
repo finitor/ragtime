@@ -118,15 +118,20 @@ What has been checked, and where:
   an AVD 4 GB and let it go idle first.
 
 Android lint: 0 errors, 11 warnings (the provisional SDK and dependency
-pins, ARM64-only packaging, the missing launcher icon). The UI test
+pins, ARM64-only packaging). The launcher icon is the desktop's leaf
+going digital on the cover's cream, as an adaptive icon with a themed
+(monochrome) layer; `tools/icon/make_android_icon.py` makes its layers
+and the notifications' small leaf from `app/res/ragtime.svg`. A launcher
+cuts icons to its own shape, so the desktop's rounded square and red rim
+are not in it. The UI test
 dependency pins Espresso 3.7.0 for API 37.
 
 Still to do: the system document picker and Save a copy by hand on the
 phone (the tests call what the picker's result calls, not the picker),
 the notification's own Disconnect action, screen-off and process-death
 behaviour of the service, kept parts and Send rest after a dropped link,
-a file from the desktop to the phone over the real modems, larger files,
-and a launcher icon.
+a file from the desktop to the phone over the real modems, and larger
+files.
 
 ### Demo mode
 

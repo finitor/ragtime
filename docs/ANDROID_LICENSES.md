@@ -88,8 +88,8 @@ Not licence matters, but they stop a submission or should be settled:
 
 - **Target API 36.** The build targets API 35. Since 2026-08-31 Play
   takes new apps and updates only if they target Android 16 (API 36).
-- A launcher icon (lint warns there is none), a release build signed
-  with an upload key, and an Android App Bundle. 64-bit and 16 KB page
+- A release build signed with an upload key, and an Android App Bundle.
+  (The launcher icon is in since 2026-11-21.) 64-bit and 16 KB page
   support are already in place.
 - **The demo's callsigns** are invented since 2026-11-21: real prefixes
   with Q-signal suffixes (W1QSO, K7QTH, DL3QRM, F5QRN) and made-up

@@ -59,7 +59,7 @@ class RadioService : Service() {
         val open=PendingIntent.getActivity(this,0,Intent(this,MainActivity::class.java),PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
         val stop=PendingIntent.getService(this,1,Intent(this,RadioService::class.java).setAction(STOP),PendingIntent.FLAG_IMMUTABLE)
         return Notification.Builder(this,CHANNEL).setContentTitle(if(model.settings.demo)"Ragtime demo mode" else "Ragtime connected")
-            .setContentText(text).setSmallIcon(android.R.drawable.stat_notify_sync).setContentIntent(open)
+            .setContentText(text).setSmallIcon(R.drawable.ic_stat_ragtime).setContentIntent(open)
             .setOngoing(true).setOnlyAlertOnce(true)
             .addAction(Notification.Action.Builder(null,if(model.settings.demo)"End demo" else "Disconnect",stop).build()).build()
     }

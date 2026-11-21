@@ -72,7 +72,7 @@ internal class AlertNotifier(private val context: Context) {
             // In demo mode the notification says so too: nothing here is from the air.
             .setContentTitle(if(demo)"Demo: ${alert.title}" else alert.title).setContentText(alert.text)
             .setStyle(Notification.BigTextStyle().bigText(alert.text))
-            .setSmallIcon(if(alert.call)android.R.drawable.sym_call_incoming else android.R.drawable.stat_notify_chat)
+            .setSmallIcon(R.drawable.ic_stat_ragtime)
             .setCategory(if(alert.call)Notification.CATEGORY_CALL else Notification.CATEGORY_MESSAGE)
             .setContentIntent(open).setAutoCancel(true).setShowWhen(true).build()
         manager.notify(id,notification)
