@@ -41,8 +41,11 @@ the same transfer's details.
 ## Current implementation status
 
 The Kotlin/Compose app and JNI bridge are in `android/` and
-`platform/android/`; this is Android build 0.1.0 (build 2). The ARM64
-debug APK builds against SDK 35, with API 26 as the provisional minimum.
+`platform/android/`; this is Android build 0.2.0 (build 3). The ARM64
+debug APK builds against and targets SDK 36 (Android 16, what Google
+Play asks of a new app), with API 26 as the provisional minimum. What a
+version brought is in [ANDROID_RELEASE_NOTES.md](ANDROID_RELEASE_NOTES.md),
+which About shows.
 It uses the existing Broadcast and Session engines, logs, station model
 and seals. Build and test instructions and runtime limits are in
 [android/README.md](../android/README.md).
@@ -104,7 +107,10 @@ gives thresholds, Data2G 0.5.1 on; with an older one there are none, the
 button says so, and Ragtime sends in the mode the modem is set to, as it
 did before. There is no thresholds file to load on the phone. Auto is on
 until the operator taps a gear, and the choice, Auto and the path are
-kept. Field desk shows the gear in effect, its speed and the weakest
+kept. Until a station has been heard Auto has nothing to go by, and the
+phone sends in the mode the modem is set to rather than the ladder's
+lowest gear: on the real modems that gear is 29 bit/s, half a minute of
+transmitting to say one line (found on the bench, 2026-11-21). Field desk shows the gear in effect, its speed and the weakest
 path, and a tap opens the gearshift: Auto, the path (Calm, Good, Poor,
 Disturbed), and the ladder, each gear with its speed, the S/N it needs,
 its time per KB and how many dB short the weakest path is for it. A
@@ -147,10 +153,10 @@ What has been checked, and where:
   file offered, received and checked byte for byte, one declined, a
   broadcast file received and checked, rows kept across a restart and
   read back once, paths outside the station's folder refused).
-- The tethered S26 (SM-S948U1, Android 17/API 37), 0.1.0 build 2, against
+- The tethered S26 (SM-S948U1, Android 17/API 37), 0.2.0 build 3, against
   the loopback fake-host bench over USB (2026-11-21, 121 s with demo
   mode's, the notices', the alerts', the roll call's, the pictures' and
-  the gearshift's tests (169 s in all), 12 passed, the two real-modem
+  the gearshift's tests (170 s in all), 12 passed, the two real-modem
   tests skipped; the bench's tests run twice on one bench with no restart):
   the packaged-JNI interop test (UTF-8 and emoji broadcast, addressed
   acknowledgements, session text, a session file saved byte for byte
@@ -167,10 +173,10 @@ What has been checked, and where:
   up on 8100/8300 throughout: the bench was forwarded on ports 10000
   higher (`tools/android-smoke.sh SERIAL 10000`), and the saved MYCALL-1
   settings were put back after.
-- The same phone and build over real modems, see
-  [0.1.0 over real modems](#010-over-real-modems-2026-11-20): the
-  addressed Unicode message and its ACK, a session file and a broadcast
-  file with a repair round.
+- The same phone over real modems, see
+  [0.2.0 over real modems](#020-over-real-modems-2026-11-21) and
+  [0.1.0](#010-over-real-modems-2026-11-20) before it: the addressed
+  Unicode message and its ACK, a session file and a broadcast file.
 - The chat-only build earlier passed its tests on an ARM64/API 35
   emulator. 0.1.0 has not run on an emulator: a new google_apis AVD at
   the default 1.5 GB killed the app for slow startup while its first
@@ -455,3 +461,53 @@ timings (the log and JSON are that run's; `received/` has all four
 files). Not covered: a file from the desktop to the
 phone, files over a few kilobytes, an impaired channel, and the phone
 screen off.
+
+### 0.2.0 over real modems, 2026-11-21
+
+The same bench as above (the S26 as MYCALL-1 on its own Data2G TNC, the
+Mac as MYCALL on Data2G 0.5.3 with desktop Ragtime), with build 0.2.0
+(3): the gearshift picking the mode from the thresholds the real modem
+gives, and SDK 36.
+
+- `RealModemPilotTest`: the addressed message acknowledged 7.5 s after
+  Send, on the APK that went to `dist/`.
+- `RealModemFileTest`, staying on the air 5 minutes
+  (`-e pilotSettle 300`): connected in 4.3 s, a 1,200-byte session file
+  Sent and checked at 34 s, and a 1,200-byte broadcast file saved on the
+  Mac within a minute of the ragchew ending. Both copies on the Mac have
+  the SHA-256 the phone recorded.
+
+What the first attempts taught, each now dealt with:
+
+- **Auto with nobody heard** sat in the ladder's lowest gear, which on
+  the real modems is fsk16r25 at 29 bit/s: 34 s of transmitting for one
+  line, and an acknowledgement after 39 s instead of 7. The phone now
+  sends in the modem's own mode until a station has been heard.
+- **A desktop left in its lowest gear** (the bench's profile had no
+  gearshift settings) takes 15 to 18 s to say anything. When the ragchew
+  ended both stations announced it at once, and the Mac's announcement
+  covered the phone's whole broadcast file. The repair exchange that
+  follows such a loss needs minutes at that speed, and the test left the
+  air after 90 s, reporting a pass with no file on the Mac. The bench's
+  desktop is now on Auto, the test's time on the air is an argument, and
+  a pass still needs the Mac's copy compared by hand: the phone cannot
+  see the far end's disk.
+- **A seal from before a restart** cannot be repaired: the Mac, hearing
+  seal 3, asked for the seal 2 it had never heard, and the phone refused
+  it as no longer held. That is the engines' rule, the same on the
+  desktop, and cost nothing here.
+
+One thing not explained: a desktop Ragtime that had been up three
+hours, through a Hand, a toggle of its 500 Hz switch and a call that was
+refused (NOT_LISTENING), heard an addressed line and never transmitted
+its acknowledgement. A fresh instance acknowledged the same line in
+20 ms. Its flight recording is in
+`build-phone-local-bench/run-3mtfel0r/desktop.conf.flight/` (the line
+heard at 08:13:09 UTC, nothing sent after). It is the desktop's
+behaviour, not the phone's, and worth a look on the Mac port.
+
+Evidence: `build-phone-local-bench/run-2o5lh6wi/` and
+`build-android-results/s26-0.2.0-real-modem-pilot.log`,
+`s26-0.2.0-real-modem-file.log` and `.json`. Still not on the air:
+pictures, a file from the desktop to the phone, and anything over an
+impaired channel.

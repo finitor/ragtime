@@ -4,7 +4,7 @@ Native Kotlin/Compose frontend over Ragtime's existing C++17 engines.
 Stations, Conversations, Field desk and Files share one connection owner.
 The agreed navigation is in [../docs/ANDROID.md](../docs/ANDROID.md).
 
-Build 0.1.0 supports external-host broadcast and session text, addressed
+Build 0.2.0 supports external-host broadcast and session text, addressed
 acknowledgements, station discovery, explicit Call/Leave, pause, narrow
 modes, reconnect, native chat history, and session and broadcast files up
 to 300 KB through Android's document picker. Connect starts a foreground
@@ -26,7 +26,7 @@ so ([how it works](../docs/ANDROID.md#demo-mode)).
 ## Build
 
 Pinned development toolchain: JDK 17, Gradle 8.9, AGP 8.7.2, Kotlin 2.0.0,
-Compose BOM 2024.10.01, SDK/target 35, NDK 28.2.13676358, CMake 3.22.1.
+Compose BOM 2024.10.01, SDK/target 36, NDK 28.2.13676358, CMake 3.22.1.
 The provisional minimum is Android 8/API 26; this APK contains ARM64 only.
 These pins use the available local toolchain and are not a Play release
 or a final OS support policy.
@@ -164,7 +164,7 @@ JVM, and `AlertTrackerTest` what is worth a notification. `DemoModeTest`,
 `AboutTest` (the notices) and `AlertsTest` (a notification while out of
 sight) run on the device with the others and need no bench.
 
-Verified on 2026-11-21 with 0.1.0 build 2: both desktop adapter tests
+Verified on 2026-11-21 with 0.2.0 build 3: both desktop adapter tests
 pass with the eight HostLink, Broadcast, Session and file CTest targets
 beside them; debug APK assembly and Android lint pass (0 errors, 11
 warnings for the provisional toolchain/ABI choices); and the tethered S26 (SM-S948U1, Android 17/API 37) passes the
@@ -222,7 +222,14 @@ which the far end gives only after checking the digest, leaves, then
 broadcasts a second file. Start the bench with `--auto-files PHONE_CALL`
 so the desktop saves both with no click, and compare the copies in the
 run's `received/` with the SHA-256s in `files/real-modem-file.json`. It
-takes about four minutes.
+takes about four minutes, or longer with `-e pilotSettle SECONDS`, the
+time it stays on the air after the broadcast file has gone, for its seal
+and any repairs (90 by default; a file that was talked over needs
+minutes). The bench's desktop is put on gearshift Auto.
+
+An APK handed to anyone is the debug build as tested, copied to
+`dist/android/` with its SHA-256 and the release notes; `dist/` is not
+in the repository.
 
 The real-modem tests skip unless `pilotHost` is explicitly supplied. Its
 deadline allows actual waveform transmission; keep the phone app open

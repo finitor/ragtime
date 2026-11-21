@@ -1,7 +1,7 @@
 # Android: open source licence audit
 
-Audited 2026-11-20, Android build 0.1.0 (build 2), from the debug APK
-`ragtime-android-0.1.0-b2-debug.apk` and the `releaseRuntimeClasspath`
+Audited 2026-11-20 on build 0.1.0 (build 2) and brought up to 0.2.0
+(build 3) on 2026-11-21, from the debug APK and the `releaseRuntimeClasspath`
 Gradle resolves. Redo it when a dependency, the NDK or a native feature
 (pictures, voice, rig control) changes. This is an engineering audit, not
 legal advice.
@@ -91,8 +91,8 @@ mode's bar already says the stations are simulated.
 
 Not licence matters, but they stop a submission or should be settled:
 
-- **Target API 36.** The build targets API 35. Since 2026-08-31 Play
-  takes new apps and updates only if they target Android 16 (API 36).
+- **Target API 36**: done with 0.2.0. Since 2026-08-31 Play takes new
+  apps and updates only if they target Android 16 (API 36).
 - A release build signed with an upload key, and an Android App Bundle.
   (The launcher icon is in since 2026-11-21.) 64-bit and 16 KB page
   support are already in place.

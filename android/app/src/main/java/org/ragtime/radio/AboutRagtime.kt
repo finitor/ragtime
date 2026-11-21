@@ -6,15 +6,20 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AboutRagtime(onNotice:(Notice)->Unit,onDismiss:()->Unit) {
+    val context=LocalContext.current
+    val notes=remember { noticeParts(runCatching { context.assets.open("release-notes.md").bufferedReader().use { it.readText() } }.getOrDefault("")) }
     ModalBottomSheet(onDismissRequest=onDismiss) {
         SelectionContainer {
-            LazyColumn(Modifier.fillMaxWidth(),contentPadding=PaddingValues(start=24.dp,end=24.dp,bottom=40.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
+            LazyColumn(Modifier.fillMaxWidth().testTag("about-list"),contentPadding=PaddingValues(start=24.dp,end=24.dp,bottom=40.dp),verticalArrangement=Arrangement.spacedBy(12.dp)) {
                 item { Text("About Ragtime",style=MaterialTheme.typography.headlineSmall) }
                 item { Text("Ragtime for Android ${BuildConfig.VERSION_NAME}\nBuild ${BuildConfig.VERSION_CODE}",style=MaterialTheme.typography.titleMedium) }
                 item { Text("Chat and file transfer through a Data2G modem. Stations, Conversations, Field desk and Files share one connection.") }
@@ -25,27 +30,15 @@ internal fun AboutRagtime(onNotice:(Notice)->Unit,onDismiss:()->Unit) {
                     OutlinedButton(onClick={onNotice(Notice.Licences)}) { Text("Open source licences") }
                 } }
                 item { HorizontalDivider() }
-                item { Text("Release notes · 0.1.0",style=MaterialTheme.typography.titleLarge) }
-                item { Text("November 20, 2026",style=MaterialTheme.typography.bodySmall) }
-                items(listOf(
-                    "Send and receive session files, with accept, decline, cancel, progress and retained partial files.",
-                    "Broadcast files with digest verification and requests for missing pieces.",
-                    "Choose documents using Android's file picker and save completed files to a location you choose. The size limit is 300 KB.",
-                    "Keep the modem connection active while switching apps. Use the ongoing notification to return to Ragtime or disconnect.",
-                    "Preserve transfer history and received files in app-private storage.",
-                    "Show version and build numbers in Settings and About."
-                    ,"Show a red TX indicator in every view while Data2G reports PTT on."
-                    ,"Disconnect leaves an active ragchew at the modem, so the next Connect can call again."
-                    ,"Demo mode in Settings: practise with simulated stations that check in, answer you, take a call and trade files. A guide suggests what to try; nothing is transmitted."
-                    ,"Privacy and Open source licences are in About, and Privacy is in Settings too."
-                    ,"The Demo mode switch starts the demo when turned on and ends it when turned off."
-                    ,"Notifications while Ragtime is in the background: a station called you, wrote to you with @, said something in your ragchew, or offers you a file. Tap one to land on it. Settings has the switch."
-                    ,"Roll call is on Stations, beside Call station, not in Settings."
-                    ,"Gearshift, on Field desk: the gear your broadcasts, files and pictures on D2G go in. Auto follows the weakest station heard lately; tap a gear to stay in it. It needs a modem that gives thresholds (Data2G 0.5.1 or later). A picture for D2G now says about how long it will take."
-                    ,"Pictures, inline: one a station sends shows among the messages and sharpens as it arrives, up to 64 KB without asking. Send one from the + beside the entry line: any picture Android can read (JPEG, PNG, WebP, HEIF…), shrunk and sent as JPEG 2000. Tap a picture to see it alone."
-                    ,"Settings: callsign and locator come first, and a localhost shortcut fills in Data2G running on this phone."
-                )) { note->Text("• $note") }
-                item { Text("Voice messages are not included in this build: they arrive as files.",style=MaterialTheme.typography.bodySmall) }
+                // docs/ANDROID_RELEASE_NOTES.md, copied in when the APK is built.
+                items(notes) { part->
+                    when(part.kind) {
+                        NoticePart.Kind.Title -> Text("Release notes",style=MaterialTheme.typography.titleLarge)
+                        NoticePart.Kind.Heading -> Text(part.text,style=MaterialTheme.typography.titleMedium,modifier=Modifier.padding(top=8.dp))
+                        NoticePart.Kind.Bullet -> Row { Text("•  ");Text(part.text) }
+                        else -> Text(part.text)
+                    }
+                }
             }
         }
     }
