@@ -32,7 +32,8 @@ class RadioService : Service() {
     }
     override fun onBind(intent:Intent?)=null
     override fun onStartCommand(intent:Intent?,flags:Int,startId:Int):Int {
-        if(intent?.action!=START) { model.disconnect();stopSelf();return START_NOT_STICKY }
+        // The notification's End demo turns the demo off as its switch does.
+        if(intent?.action!=START) { if(model.settings.demo)model.demoOff() else model.disconnect();stopSelf();return START_NOT_STICKY }
         val channel=NotificationChannel(CHANNEL,"Radio connection",NotificationManager.IMPORTANCE_LOW)
         getSystemService(NotificationManager::class.java).createNotificationChannel(channel)
         try {

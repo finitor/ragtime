@@ -142,9 +142,11 @@ in it, no audio is made and nothing reaches a modem or a radio.
   and session bytes cross at 400 a second, so a file shows its progress.
 
 On the screen: the amber bar ("DEMO MODE  Simulated stations; nothing is
-sent.") covers the status bar's strip too and opens Settings. Turning the
-Demo mode switch off in Settings ends the demo at once and keeps it off
-(Tim, 2026-11-21); turning it on waits for Start demo. The
+sent.") covers the status bar's strip too and opens Settings. The Demo mode
+switch in Settings is the demo (Tim, 2026-11-21): turned on it starts the
+demo and the sheet makes way, turned off it ends it at once, and Connect
+and Disconnect, which are for the operator's own modem, are not shown
+while it is on. It cannot be turned on from a ragchew on the air. The
 guide's bubble (`DemoGuide.kt`, `demoTip`) works out the next step from
 the snapshot alone, so it survives rotation and an operator who wanders
 off, and a tap on a bubble with a suggested line puts that line in the

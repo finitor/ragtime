@@ -257,7 +257,10 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
     var kiss by rememberSaveable { mutableStateOf(model.settings.kiss.toString()) }
     var command by rememberSaveable { mutableStateOf(model.settings.command.toString()) }
     var error by remember { mutableStateOf("") }
-    var demo by rememberSaveable { mutableStateOf(model.settings.demo) }
+    // The switch shows what is so: on while the demo runs, however it was
+    // started or ended (the notification can end it too).
+    var demo by rememberSaveable { mutableStateOf(model.demoActive) }
+    LaunchedEffect(model.demoActive) { demo=model.demoActive }
     LazyColumn(Modifier.fillMaxWidth().imePadding(),contentPadding=PaddingValues(start=24.dp,end=24.dp,bottom=32.dp),verticalArrangement=Arrangement.spacedBy(10.dp)) {
         item { Text("Settings",style=MaterialTheme.typography.headlineSmall) }
         item {
@@ -283,19 +286,30 @@ private fun HostControls(model: RadioModel, onConnected: () -> Unit, onAbout:()-
             OutlinedTextField(kiss,{kiss=it},Modifier.weight(1f),label={Text("KISS port")},singleLine=true,enabled=!demo,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
             OutlinedTextField(command,{command=it},Modifier.weight(1f),label={Text("Command port")},singleLine=true,enabled=!demo,keyboardOptions=KeyboardOptions(keyboardType=KeyboardType.Number))
         } }
+        // The switch is the demo: on starts it, off ends it, and no button
+        // repeats either. Not while in a ragchew on the air, which a slip of
+        // the thumb would otherwise leave.
         item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
+            val onTheAir=state.active&&!model.demoActive
             Column(Modifier.weight(1f).padding(end=12.dp)) {
                 Text("Demo mode")
-                Text("Practise with simulated stations inside the app. No modem is used and nothing is transmitted.",style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if(onTheAir)"Leave your ragchew before trying the demo." else "Practise with simulated stations inside the app. No modem is used and nothing is transmitted.",
+                    style=MaterialTheme.typography.bodySmall,color=MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            // Off is off at once: a demo left running behind a switch that says
-            // off would be the one thing demo mode must never be, unclear.
-            Switch(checked=demo,onCheckedChange={demo=it;error="";if(!it)model.demoOff()},modifier=Modifier.testTag("demo-switch"))
+            Switch(checked=demo,enabled=!onTheAir,modifier=Modifier.testTag("demo-switch"),onCheckedChange={ on->
+                error=""
+                if(on) try {
+                    model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,true))
+                    demo=true;onConnected()
+                } catch(e:IllegalArgumentException) { error=e.message?:"Check settings" }
+                else { demo=false;model.demoOff() }
+            })
         } }
         if(error.isNotEmpty())item { Text(error,color=MaterialTheme.colorScheme.error) }
-        item { Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
-            Button(onClick={try { model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,demo));onConnected() }catch(e:IllegalArgumentException){error=e.message?:"Check settings"}}) { Text(if(demo)"Start demo" else "Connect") }
-            OutlinedButton(onClick={model.disconnect()},enabled=state.connection!="Disconnected") { Text(if(model.demoActive)"End demo" else "Disconnect") }
+        // Connect and Disconnect are for the operator's own modem.
+        if(!demo)item { Row(horizontalArrangement=Arrangement.spacedBy(12.dp)) {
+            Button(onClick={try { model.connect(HostSettings(host,call,locator,kiss.toIntOrNull()?:0,command.toIntOrNull()?:0,false));onConnected() }catch(e:IllegalArgumentException){error=e.message?:"Check settings"}}) { Text("Connect") }
+            OutlinedButton(onClick={model.disconnect()},enabled=state.connection!="Disconnected") { Text("Disconnect") }
         } }
         item { Row(Modifier.fillMaxWidth(),verticalAlignment=Alignment.CenterVertically,horizontalArrangement=Arrangement.SpaceBetween) {
             Text("500 Hz modes only");Switch(checked=state.narrow,onCheckedChange={model.action("narrow",it.toString())},enabled=state.ready)

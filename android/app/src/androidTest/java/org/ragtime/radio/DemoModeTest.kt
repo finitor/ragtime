@@ -22,14 +22,14 @@ class DemoModeTest {
         try {
             if(app.onAllNodesWithText("Settings").fetchSemanticsNodes().isEmpty())
                 app.onNodeWithContentDescription("Settings").performClick()
+            // The switch is the demo: turned on, it starts and the sheet makes way.
             app.onNodeWithTag("demo-switch").performScrollTo()
-            if(!model.settings.demo||app.onAllNodes(hasTestTag("demo-switch") and isOff()).fetchSemanticsNodes().isNotEmpty())
+            if(app.onAllNodes(hasTestTag("demo-switch") and isOn()).fetchSemanticsNodes().isNotEmpty())
                 app.onNodeWithTag("demo-switch").performClick()
-            app.onNodeWithTag("demo-switch").assertIsOn()
-            // The real host's fields are out of reach while the demo is picked.
-            app.onNode(hasText("Host name or IP address") and isNotEnabled()).assertExists()
-            app.onNode(hasSetTextAction() and hasText("Callsign")).assertExists()
-            app.onNodeWithText("Start demo").performScrollTo().performClick()
+            app.onNodeWithTag("demo-switch").assertIsOff()
+            app.onNodeWithText("Connect").assertExists()
+            app.onNodeWithTag("demo-switch").performClick()
+            app.waitUntil(5000) { app.onAllNodesWithTag("demo-switch").fetchSemanticsNodes().isEmpty() }
 
             app.waitUntil(20000) { model.demoActive&&model.snapshot.ready&&model.snapshot.dataUp }
             val call=model.settings.call
@@ -72,11 +72,17 @@ class DemoModeTest {
             // The switch turned off ends the demo there and then: the bar comes
             // down, the ragchew is left, and the switch stays off.
             app.onNodeWithContentDescription("Settings").performClick()
-            app.onNodeWithTag("demo-switch").performScrollTo().assertIsOn().performClick()
+            app.onNodeWithTag("demo-switch").performScrollTo().assertIsOn()
+            // While it runs the real host's fields are out of reach, and there
+            // is nothing to press but the switch.
+            app.onNode(hasText("Host name or IP address") and isNotEnabled()).assertExists()
+            app.onNode(hasSetTextAction() and hasText("Callsign")).assertExists()
+            app.onNodeWithText("Connect").assertDoesNotExist()
+            app.onNodeWithText("Start demo").assertDoesNotExist()
+            app.onNodeWithTag("demo-switch").performClick()
             app.waitUntil(15000) { !model.demoActive&&model.snapshot.connection=="Disconnected" }
             app.onNodeWithTag("demo-switch").assertIsOff()
             assertFalse(model.settings.demo)
-            assertFalse(preferences.getBoolean("demo",true))
             androidx.test.espresso.Espresso.pressBack()
             app.waitUntil(5000) { app.onAllNodesWithTag("demo-switch").fetchSemanticsNodes().isEmpty() }
             app.onNodeWithText("DEMO MODE").assertDoesNotExist()
