@@ -127,9 +127,10 @@ internal class RadioModel(application: Application) : AndroidViewModel(applicati
      * if it is running, and the next Connect is to the operator's own modem.
      */
     fun demoOff() {
+        val running=demoActive||settings.demo
         settings=settings.copy(demo=false)
         preferences.edit().putBoolean("demo",false).apply()
-        if(demoActive)disconnect()
+        if(running)disconnect()
     }
     private fun stopDemo() {
         // What the demo's stations said goes with the banner: none of it is
